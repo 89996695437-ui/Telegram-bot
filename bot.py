@@ -1,7 +1,9 @@
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-BOT_TOKEN = "8549690762:AAHl1qbMRMjCD3EgEKEppDr-E7jllHarJOE"
+import os
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 QUESTIONS = [
     {"text": "1. В конце дня ты чаще всего чувствуешь...", "options": [("Голова гудит, мысли не останавливаются", {"mental": 2}), ("Эмоционально выжата", {"emotional": 2}), ("Раздражение от шума", {"sensory": 2}), ("Скуку и пустоту", {"creative": 2})]},
