@@ -4,10 +4,8 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 
 import os
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    print("ОШИБКА: Токен не найден в переменных окружения!")
-    exit(1)
-print("Токен загружен успешно")
+print("Все переменные окружения:", dict(os.environ))
+print("BOT_TOKEN =", BOT_TOKEN)
 
 QUESTIONS = [
     {"text": "1. В конце дня ты чаще всего чувствуешь...", "options": [("Голова гудит, мысли не останавливаются", {"mental": 2}), ("Эмоционально выжата", {"emotional": 2}), ("Раздражение от шума", {"sensory": 2}), ("Скуку и пустоту", {"creative": 2})]},
