@@ -26,8 +26,8 @@ RESULTS = {
     "spiritual": {"title": "🙏 Духовный отдых", "desc": "Потеряла ощущение смысла. Нужно соединение с чем-то большим.", "tips": ["🤫 Время в тишине", "✍️ Записать что важно", "🏡 Отдых в загородном доме или отеле", "🧒 Диалог с внутренним ребенком"]},
 }
 
-# ССЫЛКА НА АНКЕТУ ПРЕДЗАПИСИ
-SURVEY_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdGGevDQLwvd46EtPyT50pCAQUo0OXdr-PH9SfQ3NG6IVXnIA/viewform?usp=sharing&ouid=109680719714569214826"
+# ССЫЛКА НА СТАТЬЮ
+ARTICLE_URL = "https://teletype.in/@ps.darya/sCSxNEl0d-9"
 
 # ТЕКСТ ПРИВЕТСТВИЯ
 WELCOME_TEXT = """✨ *Мы все думаем, что умеем отдыхать, пока не сваливаемся с выгоранием.*
@@ -108,22 +108,26 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✨ *Тебе нужен:* *{r['title']}*\n\n"
         f"{r['desc']}\n\n"
         f"💡 *С чего начать:*\n{tips}\n\n"
-        "🌸 *Приглашение в группу «Я есть»*\n\n"
-        "Если для тебя проблема трудоголизма и тревожной эффективности особенно актуальна, "
-        "приглашаю тебя в группу «Я есть», которая будет стартовать в сентябре, "
-        "где будем исследовать твои потребности помимо работы и разъединять цепочку «Я = Мои достижения».\n\n"
-        "📝 *Заполни анкету предзаписи, и я свяжусь с тобой:*\n"
-        f"[Открыть анкету]({SURVEY_URL})\n\n"
-        "💛 Спасибо, что прошла тест!"
+        "🌱 *Статья для тебя*\n\n"
+        "Я написала текст о том, как мы привыкаем работать, "
+        "пока не перестаём замечать себя. О том, как разрешить себе "
+        "остановиться и не чувствовать вину.\n\n"
+        "Эта статья — для тех, кто устал быть «эффективной» и хочет вернуться к себе.\n\n"
+        "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
+        "Спасибо, что прошла тест!"
     )
     
-    keyboard = [[InlineKeyboardButton("🔄 Пройти еще раз", callback_data="start_test")]]
+    keyboard = [
+        [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
+        [InlineKeyboardButton("🔄 Пройти еще раз", callback_data="start_test")]
+    ]
+    
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text, 
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode="Markdown",
-        disable_web_page_preview=True
+        disable_web_page_preview=False
     )
 
 def main():
