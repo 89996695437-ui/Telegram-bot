@@ -41,8 +41,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Логируем нового пользователя
     user = update.effective_user
-    print(f"📊 Новый пользователь: {user.first_name} (@{user.username})")
-
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
+    print(f"📊 НОВЫЙ ПОЛЬЗОВАТЕЛЬ: {user_name} ({user_username}) | ID: {user.id}")
+    
     keyboard = [[InlineKeyboardButton("🎯 Начать тест", callback_data="start_test")]]
     
     await update.message.reply_text(
@@ -53,10 +55,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data
+    user = update.effective_user
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
     
     if data == "start_test":
         context.user_data["scores"] = {k: 0 for k in RESULTS}
         context.user_data["question"] = 0
+        print(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username})")
         await update.callback_query.answer()
         await update.callback_query.edit_message_text("🌸 *Погнали! 8 вопросов, выбирай честно.*\n\n" + QUESTIONS[0]["text"], 
                                                        reply_markup=get_question_keyboard(0),
@@ -101,7 +107,9 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Логируем результат
     user = update.effective_user
-    print(f"📊 Тест завершен: {user.first_name} (@{user.username}) - результат: {r['title']}")
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
+    print(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) | РЕЗУЛЬТАТ: {r['title']}")
     
     text = (
         "🏆 *Тест завершен!*\n\n"
