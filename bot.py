@@ -7,7 +7,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 print("✅ Бот запущен")
 
-# ===================== ТЕСТ 1: ТИП ОТДЫХА =====================
+# ===================== ТЕСТ: ТИП ОТДЫХА =====================
 QUESTIONS_REST = [
     {"text": "1. В конце дня ты чаще всего чувствуешь...", "options": [("🧠 Голова гудит, мысли не останавливаются", {"mental": 2}), ("💔 Эмоционально выжата", {"emotional": 2}), ("🔊 Раздражение от шума", {"sensory": 2}), ("🌫️ Скуку и пустоту", {"creative": 2})]},
     {"text": "2. Идеальные выходные...", "options": [("🤫 Тишина и покой", {"mental": 2}), ("💬 Время с близкими", {"emotional": 2}), ("🌿 Природа без телефона", {"sensory": 2}), ("🎨 Заниматься творчеством", {"creative": 2})]},
@@ -28,31 +28,13 @@ RESULTS_REST = {
     "spiritual": {"title": "🙏 Духовный отдых", "desc": "Потеряла ощущение смысла. Нужно соединение с чем-то большим.", "tips": ["🤫 Время в тишине", "✍️ Записать что важно", "🏡 Отдых в загородном доме или отеле", "🧒 Диалог с внутренним ребенком"]},
 }
 
-# ===================== ТЕСТ 2: ВЫГОРАНИЕ =====================
-QUESTIONS_BURNOUT = [
-    {"text": "1. Как часто ты говоришь фразу «Я просто хочу лечь и ничего не делать»?", "options": [("☕ Постоянно, и это не шутка", 3), ("🧠 Часто, но думаю, что это лень", 2), ("🤷‍♀️ Иногда, когда выпадаю из режима", 1), ("🚀 Редко, у меня всё под контролем", 0)]},
-    {"text": "2. Твой выходной — это:", "options": [("📱 Спать до обеда и листать телефон", 2), ("📋 Список дел, которые не успела на неделе", 3), ("🌿 Найти час на себя и чувствовать вину", 2), ("🎯 Ничего не планировать — и кайфовать", 0)]},
-    {"text": "3. Когда кто-то говорит «Ты слишком много работаешь», ты:", "options": [("😤 Раздражаюсь — никто не понимает", 3), ("😅 Смеюсь и перевожу тему", 2), ("😔 Грустно соглашаюсь, но ничего не меняю", 1), ("🧐 Задумываюсь и проверяю, правда ли это", 0)]},
-    {"text": "4. Последний раз ты чувствовала радость, когда:", "options": [("🤗 Общалась с близкими", 0), ("🎉 Сделала что-то, что давно откладывала", 1), ("😌 Позволила себе просто быть", 0), ("😶 Уже не помню", 3)]},
-    {"text": "5. Ты просыпаешься утром с мыслью:", "options": [("🔥 «Скорее вставать, нужно успеть всё!»", 3), ("😮‍💨 «Опять этот день...»", 2), ("☀️ «Посмотрю, что принесёт новый день»", 0), ("🤯 «Что я вообще делаю?»", 3)]},
-    {"text": "6. Как ты справляешься с тревогой?", "options": [("📋 Планирую — так спокойнее", 2), ("🎬 Смотрю сериалы / скроллю соцсети", 1), ("💬 Говорю с близкими", 0), ("🙅‍♀️ Не справляюсь — она всегда со мной", 3)]},
-    {"text": "7. Какая фраза звучит в твоей голове чаще всего?", "options": [("💔 «Я должна быть сильной»", 2), ("💭 «Мне нужен отдых, но я не могу остановиться»", 3), ("😔 «Меня никто не понимает»", 2), ("🌟 «Я справлюсь, всё будет хорошо»", 0)]},
-]
-
-RESULTS_BURNOUT = [
-    {"min": 0, "max": 4, "title": "🌟 На пути к себе", "desc": "Ты уже задумываешься о своих состояниях и ищешь баланс. Это важный шаг. Лучшее, что можно сделать — не останавливаться и продолжать исследовать себя. Ты на правильном пути."},
-    {"min": 5, "max": 10, "title": "🧸 В поисках поддержки", "desc": "Эмоциональное истощение — твой главный симптом. Важно вернуть контакт с собой и снова почувствовать свои желания. Хорошая новость — ты можешь это сделать, начав с малого и в безопасном пространстве."},
-    {"min": 11, "max": 16, "title": "🦸‍♀️ Уставший герой", "desc": "Ты привыкла тащить всё на себе и не жаловаться, но чувствуешь, что падаешь с ног. Пришло время делегировать и учиться просить о помощи. Это не слабость, а забота о себе."},
-    {"min": 17, "max": 21, "title": "💔 Запущенный перфекционист", "desc": "Высокий балл — выгорание близко. Привычка всё контролировать и доводить до идеала истощает. Самое важное — разрешить себе быть 'достаточно хорошей'. Учиться брать паузы без чувства вины."},
-]
-
-ARTICLE_URL = "https://bit.ly/4aAONAj"
+ARTICLE_URL = "https://teletype.in/@ps.darya/sCSxNEl0d-9"
 
 # ===================== ПРОМТ МЕНТАЛЬНЫЙ ПОМОЩНИК =====================
 PAYMENT_URL = "#"  # СЮДА ВСТАВИШЬ ССЫЛКУ НА ОПЛАТУ
 
 PROMPT_DESCRIPTION = """
-🤖 *Ментальный помощник*
+🤖 *Промт «Ментальный помощник»*
 
 Это не просто промт. Это инструкция для твоего ИИ — быть твоим ментальным ассистентом.
 
@@ -118,8 +100,7 @@ WELCOME_TEXT = """👋 *Привет! На связи бот психолога 
 Выбери тест или посмотри промт:
 
 🧠 *Тест на тип отдыха*
-🔥 *Тест на выгорание*
-🤖 *Ментальный помощник*"""
+🤖 *Промт «Ментальный помощник»*"""
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -130,8 +111,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
-        [InlineKeyboardButton("🔥 Тест на выгорание", callback_data="start_burnout")],
-        [InlineKeyboardButton("🤖 Ментальный помощник", callback_data="show_prompt")]
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
     ]
     
     await update.message.reply_text(
@@ -153,7 +133,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.callback_query.edit_message_text(
             PROMPT_DESCRIPTION,
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            disable_web_page_preview=True
         )
         return
     
@@ -164,7 +145,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # ===== ТЕСТ НА ТИП ОТДЫХА =====
     if data == "start_rest":
-        context.user_data["test_type"] = "rest"
         context.user_data["scores"] = {k: 0 for k in RESULTS_REST}
         context.user_data["question"] = 0
         print(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username}) - ТЕСТ: Тип отдыха")
@@ -176,21 +156,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # ===== ТЕСТ НА ВЫГОРАНИЕ =====
-    if data == "start_burnout":
-        context.user_data["test_type"] = "burnout"
-        context.user_data["scores"] = 0
-        context.user_data["question"] = 0
-        print(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username}) - ТЕСТ: Выгорание")
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            "🔥 *Тест на выгорание! 7 вопросов, отвечай честно.*\n\n" + QUESTIONS_BURNOUT[0]["text"],
-            reply_markup=get_question_keyboard_burnout(0),
-            parse_mode="Markdown"
-        )
-        return
-    
-    # ===== ОТВЕТЫ НА ТЕСТ 1 =====
+    # ===== ОТВЕТЫ НА ТЕСТ =====
     if data.startswith("rest_"):
         parts = data[5:].split("_")
         qi, oi = int(parts[0]), int(parts[1])
@@ -209,28 +175,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_question_keyboard_rest(nq)
             )
         else:
-            await show_result_rest(update, context)
-        return
-    
-    # ===== ОТВЕТЫ НА ТЕСТ 2 =====
-    if data.startswith("burn_"):
-        parts = data[5:].split("_")
-        qi, oi = int(parts[0]), int(parts[1])
-        if qi != context.user_data.get("question", 0):
-            await update.callback_query.answer("Уже отвечено")
-            return
-        _, score = QUESTIONS_BURNOUT[qi]["options"][oi]
-        context.user_data["scores"] += score
-        nq = qi + 1
-        context.user_data["question"] = nq
-        if nq < len(QUESTIONS_BURNOUT):
-            await update.callback_query.answer()
-            await update.callback_query.edit_message_text(
-                QUESTIONS_BURNOUT[nq]["text"],
-                reply_markup=get_question_keyboard_burnout(nq)
-            )
-        else:
-            await show_result_burnout(update, context)
+            await show_result(update, context)
         return
 
 def get_question_keyboard_rest(q_idx):
@@ -238,21 +183,14 @@ def get_question_keyboard_rest(q_idx):
     keyboard = [[InlineKeyboardButton(t, callback_data="rest_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
     return InlineKeyboardMarkup(keyboard)
 
-def get_question_keyboard_burnout(q_idx):
-    q = QUESTIONS_BURNOUT[q_idx]
-    keyboard = [[InlineKeyboardButton(t, callback_data="burn_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
-    return InlineKeyboardMarkup(keyboard)
-
-def get_final_keyboard(test_type):
-    """Общая клавиатура для финала любого теста"""
+def get_final_keyboard():
+    """Клавиатура для финала теста — только статья и промт"""
     return [
         [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
-        [InlineKeyboardButton("🤖 Ментальный помощник", callback_data="show_prompt")],
-        [InlineKeyboardButton("🔄 Пройти тест заново", callback_data=f"start_{test_type}")],
-        [InlineKeyboardButton("🔄 Пройти другой тест", callback_data="start_rest" if test_type == "burnout" else "start_burnout")]
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
     ]
 
-async def show_result_rest(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sc = context.user_data.get("scores", {})
     w = max(sc, key=sc.get)
     r = RESULTS_REST[w]
@@ -261,7 +199,7 @@ async def show_result_rest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
-    print(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - ТЕСТ: Тип отдыха | РЕЗУЛЬТАТ: {r['title']}")
+    print(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - РЕЗУЛЬТАТ: {r['title']}")
     
     text = (
         "🏆 *Тест завершен!*\n\n"
@@ -275,7 +213,7 @@ async def show_result_rest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "В статье есть 2 упражнения, которые помогут начать отдыхать без тревоги 🎁\n\n"
         "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
         "🌸 *Кстати!*\n\n"
-        "У меня есть «Ментальный помощник» — готовый промт, который будет поддерживать тебя каждый день.\n\n"
+        "У меня есть промт «Ментальный помощник» — готовый инструмент, который будет поддерживать тебя каждый день.\n\n"
         "Оплата одноразовая. Без подписки.\n\n"
         "Спасибо, что прошла тест!"
     )
@@ -283,44 +221,7 @@ async def show_result_rest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
-        reply_markup=InlineKeyboardMarkup(get_final_keyboard("rest")),
-        parse_mode="Markdown",
-        disable_web_page_preview=False
-    )
-
-async def show_result_burnout(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    score = context.user_data.get("scores", 0)
-    result = None
-    for r in RESULTS_BURNOUT:
-        if r["min"] <= score <= r["max"]:
-            result = r
-            break
-    
-    user = update.effective_user
-    user_name = user.first_name or "Без имени"
-    user_username = f"@{user.username}" if user.username else "без юзернейма"
-    print(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - ТЕСТ: Выгорание | РЕЗУЛЬТАТ: {result['title']} (баллы: {score})")
-    
-    text = (
-        "🏆 *Тест завершен!*\n\n"
-        f"📊 *Твой результат:* *{result['title']}*\n\n"
-        f"{result['desc']}\n\n"
-        "🌱 *Статья для тебя*\n\n"
-        "Я написала текст о том, как мы привыкаем работать, "
-        "пока не перестаём замечать себя. О том, как разрешить себе "
-        "остановиться и не чувствовать вину.\n\n"
-        "В статье есть 2 упражнения, которые помогут начать отдыхать без тревоги 🎁\n\n"
-        "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
-        "🌸 *Кстати!*\n\n"
-        "У меня есть «Ментальный помощник» — готовый промт, который будет поддерживать тебя каждый день.\n\n"
-        "Оплата одноразовая. Без подписки.\n\n"
-        "Спасибо, что прошла тест!"
-    )
-    
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text(
-        text=text,
-        reply_markup=InlineKeyboardMarkup(get_final_keyboard("burnout")),
+        reply_markup=InlineKeyboardMarkup(get_final_keyboard()),
         parse_mode="Markdown",
         disable_web_page_preview=False
     )
@@ -329,7 +230,7 @@ async def show_result_burnout(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def get_prompt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Временная команда для тестовой выдачи промта"""
     await update.message.reply_text(
-        "🤖 *Вот твой Ментальный помощник:*\n\n" + PROMPT_FULL,
+        "🤖 *Вот твой промт «Ментальный помощник»:*\n\n" + PROMPT_FULL,
         parse_mode="Markdown"
     )
 
