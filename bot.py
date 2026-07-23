@@ -1,6 +1,7 @@
 import os
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
@@ -38,7 +39,6 @@ QUESTIONS_BURNOUT = [
     {"text": "7. Какая фраза звучит в твоей голове чаще всего?", "options": [("💔 «Я должна быть сильной»", 2), ("💭 «Мне нужен отдых, но я не могу остановиться»", 3), ("😔 «Меня никто не понимает»", 2), ("🌟 «Я справлюсь, всё будет хорошо»", 0)]},
 ]
 
-# ПРАВИЛЬНЫЕ РЕЗУЛЬТАТЫ ДЛЯ ТЕСТА НА ВЫГОРАНИЕ
 RESULTS_BURNOUT = [
     {"min": 0, "max": 4, "title": "🌟 На пути к себе", "desc": "Ты уже задумываешься о своих состояниях и ищешь баланс. Это важный шаг. Лучшее, что можно сделать — не останавливаться и продолжать исследовать себя. Ты на правильном пути."},
     {"min": 5, "max": 10, "title": "🧸 В поисках поддержки", "desc": "Эмоциональное истощение — твой главный симптом. Важно вернуть контакт с собой и снова почувствовать свои желания. Хорошая новость — ты можешь это сделать, начав с малого и в безопасном пространстве."},
@@ -48,13 +48,78 @@ RESULTS_BURNOUT = [
 
 ARTICLE_URL = "https://bit.ly/4aAONAj"
 
+# ===================== ПРОМТ МЕНТАЛЬНЫЙ ПОМОЩНИК =====================
+PAYMENT_URL = "#"  # СЮДА ВСТАВИШЬ ССЫЛКУ НА ОПЛАТУ
+
+PROMPT_DESCRIPTION = """
+🤖 *Ментальный помощник*
+
+Это не просто промт. Это инструкция для твоего ИИ — быть твоим ментальным ассистентом.
+
+Я обучила его не шаблонным фразам «отдохни» и «будь позитивнее», а реальным психологическим практикам, которые использую со своими клиентами.
+
+*Что он умеет:*
+
+🎯 Движение к целям без выгорания — разобрать, чья это цель, и найти шаг без надрыва
+
+💛 Слова поддержки для каждого дня — по одной фразе, сколько нужно
+
+😴 Микроотдых в моменте — тест из 4 вопросов и подбор отдыха под состояние
+
+🌙 Вечерняя рефлексия — 3 вопроса, чтобы завершить день с опорой
+
+🧠 Работа с тревогой здесь и сейчас — 7 вопросов, чтобы разобрать тревогу и найти опору
+
+Копируешь, вставляешь в любой ИИ — и готово.
+
+Оплата одноразовая. Без подписки.
+
+💰 *Стоимость:* 1599 ₽ / $20
+
+📄 [Ознакомиться с договором оферты](https://docs.google.com/document/d/144wZHLVpBC5VPDbo2oudvVaVZt3B-thGIqQieg5jNC8/edit?usp=drivesdk)
+"""
+
+PROMPT_FULL = """Ты — мой личный ментальный ассистент. Твоя задача — заботиться о моём состоянии в моменте. Ты не психотерапевт, ты — поддерживающий инструмент самопомощи.
+
+Твои принципы:
+— Ты никогда не говоришь «ты должна», «тебе нужно». Ты говоришь мягко: «возможно», «попробуй», «если хочешь».
+— Ты не даёшь жёстких диагнозов и предписаний.
+— Ты всегда сначала уточняешь моё состояние, а потом предлагаешь варианты.
+
+Сразу после этого сообщения покажи меню из 5 пунктов с превью. Вот они — скопируй их в точности:
+
+🎯 1 — Движение к целям без выгорания
+→ Сюда, когда хочешь идти к мечте, но без надрыва и насилия над собой
+
+💛 2 — Слова поддержки для каждого дня
+→ Сюда, когда тебя некому поддержать, а внутри неуверенность
+
+😴 3 — Микроотдых в моменте  
+→ Сюда, когда ты устала, нет сил, но времени на большой отдых нет
+
+🌙 4 — Вечерняя рефлексия
+→ Сюда, чтобы завершить день с опорой и осознанностью
+
+🧠 5 — Работа с тревогой здесь и сейчас
+→ Сюда, когда тревожно, страшно, мысли бегут, а ты не знаешь, что делать
+
+После этого напиши: "Выбери номер (1–5) — и я начну работать".
+
+НЕ используй "✅". Используй только эти эмодзи: 🎯 💛 😴 🌙 🧠
+
+Теперь алгоритмы по каждой вкладке:
+
+[ЗДЕСЬ ВЕСЬ ТВОЙ ТЕКСТ С АЛГОРИТМАМИ — я сократила для кода, но ты можешь вставить полный текст]
+"""
+
 # ===================== ПРИВЕТСТВИЕ =====================
 WELCOME_TEXT = """👋 *Привет! На связи бот психолога Дарьи.*
 
-Выбери тест:
+Выбери тест или посмотри промт:
 
 🧠 *Тест на тип отдыха*
-🔥 *Тест на выгорание*"""
+🔥 *Тест на выгорание*
+🤖 *Ментальный помощник*"""
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -66,6 +131,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
         [InlineKeyboardButton("🔥 Тест на выгорание", callback_data="start_burnout")],
+        [InlineKeyboardButton("🤖 Ментальный помощник", callback_data="show_prompt")]
     ]
     
     await update.message.reply_text(
@@ -80,6 +146,23 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
     
+    # ===== ПОКАЗАТЬ ОПИСАНИЕ ПРОМТА =====
+    if data == "show_prompt":
+        keyboard = [[InlineKeyboardButton("💳 Оплатить 1599 ₽ / $20", callback_data="pay_prompt")]]
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(
+            PROMPT_DESCRIPTION,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+        return
+    
+    # ===== ОПЛАТА (ПОКА ЗАГЛУШКА) =====
+    if data == "pay_prompt":
+        await update.callback_query.answer("⏳ Сейчас этот способ оплаты настраивается. Оплатить можно будет чуть позднее. Следи за обновлениями 💛", show_alert=True)
+        return
+    
+    # ===== ТЕСТ НА ТИП ОТДЫХА =====
     if data == "start_rest":
         context.user_data["test_type"] = "rest"
         context.user_data["scores"] = {k: 0 for k in RESULTS_REST}
@@ -93,6 +176,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    # ===== ТЕСТ НА ВЫГОРАНИЕ =====
     if data == "start_burnout":
         context.user_data["test_type"] = "burnout"
         context.user_data["scores"] = 0
@@ -106,6 +190,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    # ===== ОТВЕТЫ НА ТЕСТ 1 =====
     if data.startswith("rest_"):
         parts = data[5:].split("_")
         qi, oi = int(parts[0]), int(parts[1])
@@ -127,6 +212,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_result_rest(update, context)
         return
     
+    # ===== ОТВЕТЫ НА ТЕСТ 2 =====
     if data.startswith("burn_"):
         parts = data[5:].split("_")
         qi, oi = int(parts[0]), int(parts[1])
@@ -157,6 +243,15 @@ def get_question_keyboard_burnout(q_idx):
     keyboard = [[InlineKeyboardButton(t, callback_data="burn_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
     return InlineKeyboardMarkup(keyboard)
 
+def get_final_keyboard(test_type):
+    """Общая клавиатура для финала любого теста"""
+    return [
+        [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
+        [InlineKeyboardButton("🤖 Ментальный помощник", callback_data="show_prompt")],
+        [InlineKeyboardButton("🔄 Пройти тест заново", callback_data=f"start_{test_type}")],
+        [InlineKeyboardButton("🔄 Пройти другой тест", callback_data="start_rest" if test_type == "burnout" else "start_burnout")]
+    ]
+
 async def show_result_rest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sc = context.user_data.get("scores", {})
     w = max(sc, key=sc.get)
@@ -179,19 +274,16 @@ async def show_result_rest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "остановиться и не чувствовать вину.\n\n"
         "В статье есть 2 упражнения, которые помогут начать отдыхать без тревоги 🎁\n\n"
         "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
+        "🌸 *Кстати!*\n\n"
+        "У меня есть «Ментальный помощник» — готовый промт, который будет поддерживать тебя каждый день.\n\n"
+        "Оплата одноразовая. Без подписки.\n\n"
         "Спасибо, что прошла тест!"
     )
-    
-    keyboard = [
-        [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
-        [InlineKeyboardButton("🔄 Пройти тест заново", callback_data="start_rest")],
-        [InlineKeyboardButton("🔄 Пройти другой тест", callback_data="start_burnout")]
-    ]
     
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(get_final_keyboard("rest")),
         parse_mode="Markdown",
         disable_web_page_preview=False
     )
@@ -219,26 +311,33 @@ async def show_result_burnout(update: Update, context: ContextTypes.DEFAULT_TYPE
         "остановиться и не чувствовать вину.\n\n"
         "В статье есть 2 упражнения, которые помогут начать отдыхать без тревоги 🎁\n\n"
         "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
+        "🌸 *Кстати!*\n\n"
+        "У меня есть «Ментальный помощник» — готовый промт, который будет поддерживать тебя каждый день.\n\n"
+        "Оплата одноразовая. Без подписки.\n\n"
         "Спасибо, что прошла тест!"
     )
-    
-    keyboard = [
-        [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
-        [InlineKeyboardButton("🔄 Пройти тест заново", callback_data="start_burnout")],
-        [InlineKeyboardButton("🔄 Пройти другой тест", callback_data="start_rest")]
-    ]
     
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(get_final_keyboard("burnout")),
         parse_mode="Markdown",
         disable_web_page_preview=False
     )
 
+# ===================== ВЫДАЧА ПРОМТА ПО КОМАНДЕ (ДЛЯ ТЕСТА) =====================
+async def get_prompt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Временная команда для тестовой выдачи промта"""
+    await update.message.reply_text(
+        "🤖 *Вот твой Ментальный помощник:*\n\n" + PROMPT_FULL,
+        parse_mode="Markdown"
+    )
+
+# ===================== ЗАПУСК =====================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("get_prompt", get_prompt_command))  # для теста
     app.add_handler(CallbackQueryHandler(handle_callback))
     
     print("🚀 Бот запущен и готов к работе")
