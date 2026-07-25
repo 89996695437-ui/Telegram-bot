@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import io
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, PreCheckoutQueryHandler, MessageHandler, filters
 
@@ -478,7 +480,7 @@ async def pre_checkout_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.info(f"✅ ПЛАТЕЖ: pre_checkout подтвержден для {user.first_name} (@{user.username})")
 
 async def successful_payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Выдача промта после успешной оплаты"""
+    """Выдача промта в виде файла после успешной оплаты"""
     message = update.message
     user = update.effective_user
     user_name = user.first_name or "Без имени"
@@ -487,28 +489,59 @@ async def successful_payment_handler(update: Update, context: ContextTypes.DEFAU
     payment = message.successful_payment
     logger.info(f"🎉 ОПЛАТА УСПЕШНА: {user_name} ({user_username}) | ID: {payment.telegram_payment_charge_id} | Сумма: {payment.total_amount} {payment.currency}")
 
-    # СООБЩЕНИЕ 1: Благодарность
-    await message.reply_text(
-        "🎉 *Оплата прошла успешно!*\n\n"
-        "Спасибо за доверие! 💛\n"
-        "Твой промт «Ментальный помощник» уже готов.",
-        parse_mode="Markdown"
-    )
+    try:
+        # СООБЩЕНИЕ 1: Благодарность
+        await message.reply_text(
+            "🎉 *Оплата прошла успешно!*\n\n"
+            "Спасибо за доверие! 💛\n"
+            "Твой промт «Ментальный помощник» уже готов.",
+            parse_mode="Markdown"
+        )
+        logger.info(f"✅ Отправлено сообщение 1 для {user_name}")
 
-    # СООБЩЕНИЕ 2: Сам промт (отдельным сообщением)
-    await message.reply_text(
-        "🤖 *Вот твой промт «Ментальный помощник»:*\n\n"
-        f"{PROMPT_FULL}",
-        parse_mode="Markdown"
-    )
+        await asyncio.sleep(0.5)
 
-    # СООБЩЕНИЕ 3: Финальное спасибо и напоминание
-    await message.reply_text(
-        "❤️ *Спасибо, что выбрала меня!*\n\n"
-        "Если появятся вопросы — я всегда рядом.\n"
-        "Сохрани промт и используй в любой момент.",
-        parse_mode="Markdown"
-    )
+        # === ОТПРАВКА ПРОМТА ФАЙЛОМ ===
+        # Создаём текстовый файл в памяти (не сохраняем на диск)
+        file_content = f"🤖 Промт «Ментальный помощник»\n\n{PROMPT_FULL}"
+        file_bytes = file_content.encode('utf-8')
+        file_like = io.BytesIO(file_bytes)
+        file_like.name = "mental_prompt.txt"  # Имя файла
+
+        # Отправляем файл
+        await message.reply_document(
+            document=file_like,
+            filename="mental_prompt.txt",
+            caption="📄 Сохрани файл и используй в любой момент."
+        )
+        logger.info(f"✅ Отправлен файл с промтом для {user_name}")
+
+        await asyncio.sleep(0.5)
+
+        # СООБЩЕНИЕ 3: Финальное спасибо
+        await message.reply_text(
+            "❤️ *Спасибо, что выбрала меня!*\n\n"
+            "Если появятся вопросы — я всегда рядом.\n"
+            "Сохрани файл с промтом и используй в любой момент.",
+            parse_mode="Markdown"
+        )
+        logger.info(f"✅ Отправлено сообщение 3 для {user_name}")
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка при отправке сообщений/файла: {e}")
+        # Фолбэк: пробуем отправить текст промта, если файл не отправился
+        try:
+            await message.reply_text(
+                "⚠️ Не удалось отправить файл. Вот текст промта:\n\n"
+                f"{PROMPT_FULL}",
+                parse_mode="Markdown"
+            )
+            logger.info(f"✅ Промт отправлен текстом для {user_name}")
+        except Exception as e2:
+            logger.error(f"❌ Критическая ошибка при отправке промта: {e2}")
+            await message.reply_text(
+                "⚠️ Произошла ошибка при отправке промта. Пожалуйста, свяжитесь с @ps.darya для получения промта."
+            )
 
 # ===================== ВЫДАЧА ПРОМТА ПО КОМАНДЕ (ДЛЯ ТЕСТА) =====================
 async def get_prompt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
