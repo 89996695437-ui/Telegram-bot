@@ -1,19 +1,31 @@
 import os
+import json
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import io
+import asyncio
+import requests
+import hashlib
+import uuid
+from datetime import datetime
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, LabeledPrice
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# ========== ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+SHOP_ID = os.getenv("SHOP_ID")
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 if not BOT_TOKEN:
     logger.critical("❌ ОШИБКА: BOT_TOKEN не найден в переменных окружения!")
     exit(1)
 
 logger.info("✅ Бот запущен")
+logger.info("🛒 SHOP_ID: " + (SHOP_ID if SHOP_ID else "НЕ УСТАНОВЛЕН"))
+logger.info("🔑 SECRET_KEY: " + ("Установлен" if SECRET_KEY else "НЕ УСТАНОВЛЕН"))
 
 # ===================== ТЕСТ: ТИП ОТДЫХА =====================
 QUESTIONS_REST = [
@@ -38,17 +50,153 @@ RESULTS_REST = {
 
 ARTICLE_URL = "https://teletype.in/@ps.darya/sCSxNEl0d-9"
 
+# ===================== ПРОМТ МЕНТАЛЬНЫЙ ПОМОЩНИК =====================
+PROMPT_DESCRIPTION = """
+🤖 *Промт «Ментальный помощник»*
+
+Это не просто промт. Это инструкция для твоего ИИ — быть твоим ментальным ассистентом.
+
+Я обучила его не шаблонным фразам «отдохни» и «будь позитивнее», а реальным психологическим практикам, которые использую со своими клиентами.
+
+*Что он умеет:*
+
+🎯 Движение к целям без выгорания — разобрать, чья это цель, и найти шаг без надрыва
+
+💛 Слова поддержки для каждого дня — по одной фразе, сколько нужно
+
+😴 Микроотдых в моменте — тест из 4 вопросов и подбор отдыха под состояние
+
+🌙 Вечерняя рефлексия — 3 вопроса, чтобы завершить день с опорой
+
+🧠 Работа с тревогой здесь и сейчас — 7 вопросов, чтобы разобрать тревогу и найти опору
+
+Копируешь, вставляешь в любой ИИ — и готово.
+
+Оплата одноразовая. Без подписки.
+
+💰 *Стоимость:* 1599 ₽
+
+📄 [Ознакомиться с договором оферты](https://docs.google.com/document/d/144wZHLVpBC5VPDbo2oudvVaVZt3B-thGIqQieg5jNC8/edit?usp=drivesdk)
+"""
+
+PROMPT_FULL = """Ты — мой личный ментальный ассистент. Твоя задача — заботиться о моём состоянии в моменте. Ты не психотерапевт, ты — поддерживающий инструмент самопомощи.
+
+Твои принципы:
+— Ты никогда не говоришь «ты должна», «тебе нужно». Ты говоришь мягко: «возможно», «попробуй», «если хочешь».
+— Ты не даёшь жёстких диагнозов и предписаний.
+— Ты всегда сначала уточняешь моё состояние, а потом предлагаешь варианты.
+
+Сразу после этого сообщения покажи меню из 5 пунктов с превью. Вот они — скопируй их в точности:
+
+🎯 1 — Движение к целям без выгорания
+→ Сюда, когда хочешь идти к мечте, но без надрыва и насилия над собой
+
+💛 2 — Слова поддержки для каждого дня
+→ Сюда, когда тебя некому поддержать, а внутри неуверенность
+
+😴 3 — Микроотдых в моменте  
+→ Сюда, когда ты устала, нет сил, но времени на большой отдых нет
+
+🌙 4 — Вечерняя рефлексия
+→ Сюда, чтобы завершить день с опорой и осознанностью
+
+🧠 5 — Работа с тревогой здесь и сейчас
+→ Сюда, когда тревожно, страшно, мысли бегут, а ты не знаешь, что делать
+
+После этого напиши: "Выбери номер (1–5) — и я начну работать".
+
+НЕ используй "✅". Используй только эти эмодзи: 🎯 💛 😴 🌙 🧠
+
+Теперь алгоритмы по каждой вкладке:
+
+[ЗДЕСЬ ВЕСЬ ТВОЙ ТЕКСТ С АЛГОРИТМАМИ — я сократила для кода, но ты можешь вставить полный текст]"""
+
+# ===================== ФУНКЦИИ ДЛЯ РАБОТЫ С ЮKASSA =====================
+def create_payment(amount, description, user_id):
+    """Создаёт платёж в ЮKassa и возвращает ссылку для оплаты"""
+    idempotence_key = str(uuid.uuid4())
+    url = "https://api.yookassa.ru/v3/payments"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Idempotence-Key": idempotence_key
+    }
+    
+    # Авторизация через Basic Auth
+    auth_string = f"{SHOP_ID}:{SECRET_KEY}"
+    import base64
+    auth_header = base64.b64encode(auth_string.encode()).decode()
+    headers["Authorization"] = f"Basic {auth_header}"
+    
+    # Данные для платежа
+    payload = {
+        "amount": {
+            "value": str(amount),
+            "currency": "RUB"
+        },
+        "confirmation": {
+            "type": "redirect",
+            "return_url": "https://t.me/psdarya_bot"
+        },
+        "capture": True,
+        "description": description,
+        "metadata": {
+            "user_id": str(user_id)
+        }
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Возвращаем ссылку для оплаты и ID платежа
+        confirmation_url = data["confirmation"]["confirmation_url"]
+        payment_id = data["id"]
+        return confirmation_url, payment_id
+    except Exception as e:
+        logger.error(f"❌ Ошибка при создании платежа: {e}")
+        return None, None
+
+def get_payment_status(payment_id):
+    """Проверяет статус платежа в ЮKassa"""
+    url = f"https://api.yookassa.ru/v3/payments/{payment_id}"
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    # Авторизация через Basic Auth
+    auth_string = f"{SHOP_ID}:{SECRET_KEY}"
+    import base64
+    auth_header = base64.b64encode(auth_string.encode()).decode()
+    headers["Authorization"] = f"Basic {auth_header}"
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("status")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при проверке статуса платежа: {e}")
+        return None
+
+# ===================== ПРИВЕТСТВИЕ И ОСНОВНЫЕ ОБРАБОТЧИКИ =====================
 WELCOME_TEXT = """👋 *Привет! На связи бот психолога Дарьи.*
 
-🧠 *Тест на тип отдыха* — узнай, что нужно именно тебе"""
+🧠 *Тест на тип отдыха* — узнай, что нужно именно тебе
+🤖 *Промт «Ментальный помощник»* — готовый инструмент для самоподдержки (1599 ₽)"""
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     user = update.effective_user
-    logger.info(f"📊 НОВЫЙ ПОЛЬЗОВАТЕЛЬ: {user.first_name} (@{user.username}) | ID: {user.id}")
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
+    logger.info(f"📊 НОВЫЙ ПОЛЬЗОВАТЕЛЬ: {user_name} ({user_username}) | ID: {user.id}")
 
     keyboard = [
-        [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")]
+        [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
     ]
 
     await update.message.reply_text(
@@ -63,10 +211,93 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
 
+    # ===== ПОКАЗАТЬ ОПИСАНИЕ ПРОМТА =====
+    if data == "show_prompt":
+        keyboard = [[InlineKeyboardButton("💳 Купить 1599 ₽", callback_data="start_payment")]]
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(
+            PROMPT_DESCRIPTION,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown",
+            disable_web_page_preview=True
+        )
+        return
+
+    # ===== ЗАПУСК ПЛАТЕЖА ЧЕРЕЗ API ЮKASSA =====
+    if data == "start_payment":
+        if not SHOP_ID or not SECRET_KEY:
+            await update.callback_query.answer("⚠️ Оплата временно недоступна. Пожалуйста, попробуйте позже.", show_alert=True)
+            return
+
+        await update.callback_query.answer()
+        logger.info(f"💳 ЗАПРОС ОПЛАТЫ: {user_name} ({user_username})")
+
+        try:
+            # Создаём платёж в ЮKassa
+            amount = 1599.00
+            description = "Промт «Ментальный помощник»"
+            user_id = update.effective_user.id
+            payment_url, payment_id = create_payment(amount, description, user_id)
+
+            if payment_url and payment_id:
+                # Сохраняем payment_id в user_data
+                context.user_data["payment_id"] = payment_id
+                context.user_data["payment_created"] = True
+
+                # Отправляем ссылку пользователю
+                keyboard = [[InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)]]
+                await update.callback_query.message.reply_text(
+                    "🔗 *Ссылка на оплату*\n\n"
+                    "Нажми на кнопку ниже, чтобы перейти к оплате.\n"
+                    "Доступны все способы: СБП, T‑Банк Пей, карты, SberPay, ЮMoney.\n\n"
+                    "После оплаты нажми кнопку *«Проверить оплату»*.",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
+
+                # Добавляем кнопку проверки оплаты
+                check_keyboard = [[InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")]]
+                await update.callback_query.message.reply_text(
+                    "Нажми *«Проверить оплату»* после того, как завершишь оплату.",
+                    reply_markup=InlineKeyboardMarkup(check_keyboard),
+                    parse_mode="Markdown"
+                )
+            else:
+                await update.callback_query.message.reply_text("⚠️ Произошла ошибка при создании платежа. Попробуйте позже.")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при создании платежа: {e}")
+            await update.callback_query.message.reply_text("⚠️ Произошла ошибка при создании платежа. Попробуйте позже.")
+        return
+
+    # ===== ПРОВЕРКА ОПЛАТЫ =====
+    if data == "check_payment":
+        user_id = update.effective_user.id
+        payment_id = context.user_data.get("payment_id")
+
+        if not payment_id:
+            await update.callback_query.answer("⚠️ Платёж не найден. Попробуйте создать новый.", show_alert=True)
+            return
+
+        logger.info(f"🔄 ПРОВЕРКА ОПЛАТЫ: {user_name} ({user_username}), payment_id: {payment_id}")
+
+        status = get_payment_status(payment_id)
+
+        if status == "succeeded":
+            await update.callback_query.answer("✅ Оплата подтверждена! Сейчас отправлю промт.", show_alert=True)
+            await send_prompt_file(update, context)
+        elif status == "pending":
+            await update.callback_query.answer("⏳ Платёж ещё обрабатывается. Попробуйте через несколько минут.", show_alert=True)
+        elif status == "canceled":
+            await update.callback_query.answer("❌ Платёж был отменён. Попробуйте снова.", show_alert=True)
+        else:
+            await update.callback_query.answer("⚠️ Не удалось проверить статус. Попробуйте позже.", show_alert=True)
+        return
+
+    # ===== ТЕСТ НА ТИП ОТДЫХА =====
     if data == "start_rest":
         context.user_data["scores"] = {k: 0 for k in RESULTS_REST}
         context.user_data["question"] = 0
-        logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username})")
+        logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username}) - ТЕСТ: Тип отдыха")
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             "🌸 *Тест на тип отдыха! 8 вопросов, выбирай честно.*\n\n" + QUESTIONS_REST[0]["text"],
@@ -75,6 +306,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # ===== ОТВЕТЫ НА ТЕСТ =====
     if data.startswith("rest_"):
         parts = data[5:].split("_")
         qi, oi = int(parts[0]), int(parts[1])
@@ -96,10 +328,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_result(update, context)
         return
 
+# ===================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====================
 def get_question_keyboard_rest(q_idx):
     q = QUESTIONS_REST[q_idx]
     keyboard = [[InlineKeyboardButton(t, callback_data="rest_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
     return InlineKeyboardMarkup(keyboard)
+
+def get_final_keyboard():
+    return [
+        [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
+    ]
 
 async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sc = context.user_data.get("scores", {})
@@ -108,7 +347,9 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tips = "\n".join(t for t in r["tips"])
 
     user = update.effective_user
-    logger.info(f"🎯 ТЕСТ ЗАВЕРШЕН: {user.first_name} (@{user.username}) - РЕЗУЛЬТАТ: {r['title']}")
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
+    logger.info(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - РЕЗУЛЬТАТ: {r['title']}")
 
     text = (
         "🏆 *Тест завершен!*\n\n"
@@ -121,20 +362,72 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "остановиться и не чувствовать вину.\n\n"
         "В статье есть 2 упражнения, которые помогут начать отдыхать без тревоги 🎁\n\n"
         "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
+        "🌸 *Кстати!*\n\n"
+        "У меня есть промт «Ментальный помощник» — готовый инструмент, который будет поддерживать тебя каждый день.\n\n"
+        "Оплата одноразовая. Без подписки.\n\n"
         "Спасибо, что прошла тест!"
     )
-
-    keyboard = [[InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)]]
 
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=InlineKeyboardMarkup(get_final_keyboard()),
         parse_mode="Markdown",
         disable_web_page_preview=False
     )
 
+# ===================== ВЫДАЧА ПРОМТА ФАЙЛОМ =====================
+async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отправляет файл с промтом пользователю"""
+    message = update.callback_query.message
+    user = update.effective_user
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
+
+    try:
+        # СООБЩЕНИЕ 1: Благодарность
+        await message.reply_text(
+            "🎉 *Оплата прошла успешно!*\n\n"
+            "Спасибо за доверие! 💛\n"
+            "Твой промт «Ментальный помощник» уже готов.",
+            parse_mode="Markdown"
+        )
+        logger.info(f"✅ Отправлено сообщение 1 для {user_name}")
+
+        await asyncio.sleep(0.5)
+
+        # === ОТПРАВКА ПРОМТА ФАЙЛОМ ===
+        file_content = f"🤖 Промт «Ментальный помощник»\n\n{PROMPT_FULL}"
+        file_bytes = file_content.encode('utf-8')
+        file_like = io.BytesIO(file_bytes)
+        file_like.name = "mental_prompt.txt"
+
+        await message.reply_document(
+            document=file_like,
+            filename="mental_prompt.txt",
+            caption="📄 Сохрани файл и используй в любой момент."
+        )
+        logger.info(f"✅ Отправлен файл с промтом для {user_name}")
+
+        await asyncio.sleep(0.5)
+
+        # СООБЩЕНИЕ 3: Финальное спасибо
+        await message.reply_text(
+            "❤️ *Спасибо, что выбрала меня!*\n\n"
+            "Если появятся вопросы — я всегда рядом.\n"
+            "Сохрани файл с промтом и используй в любой момент.",
+            parse_mode="Markdown"
+        )
+        logger.info(f"✅ Отправлено сообщение 3 для {user_name}")
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка при отправке промта: {e}")
+
+# ===================== ЗАПУСК =====================
 def main():
+    if not SHOP_ID or not SECRET_KEY:
+        logger.warning("⚠️ ВНИМАНИЕ: SHOP_ID или SECRET_KEY не установлены! Оплата не будет работать.")
+
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
