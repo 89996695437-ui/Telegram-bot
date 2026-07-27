@@ -586,7 +586,7 @@ async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_username = f"@{user.username}" if user.username else "без юзернейма"
 
     try:
-        # Сообщение 1: Благодарность
+        # СООБЩЕНИЕ 1: Благодарность
         await message.reply_text(
             "🎉 *Оплата прошла успешно!*\n\n"
             "Спасибо за доверие! 💛\n"
@@ -597,16 +597,21 @@ async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await asyncio.sleep(0.5)
 
-        # === ОТПРАВКА ПРОМТА ФАЙЛОМ ===
-        file_content = (
+        # СООБЩЕНИЕ 2: Инструкция перед файлом
+        await message.reply_text(
             "Скопируй этот текст в любого своего ИИ (ChatGPT, DeepSeek, YandexGPT и др.) "
             "и пользуйся, чтобы:\n"
             "— достигать своих целей без насилия над собой\n"
             "— меньше тревожиться\n"
             "— вовремя замечать усталость и отдыхать\n"
-            "— порефлексировать вечером и получить поддержку, когда нужно\n\n"
-            f"{PROMPT_FULL}"
+            "— порефлексировать вечером и получить поддержку, когда нужно"
         )
+        logger.info(f"✅ Отправлена инструкция для {user_name}")
+
+        await asyncio.sleep(0.5)
+
+        # === ОТПРАВКА ПРОМТА ФАЙЛОМ (только промт) ===
+        file_content = PROMPT_FULL
         file_bytes = file_content.encode('utf-8')
         file_like = io.BytesIO(file_bytes)
         file_like.name = "mental_prompt.txt"
@@ -617,18 +622,6 @@ async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption="📄 Сохрани файл и используй в любой момент."
         )
         logger.info(f"✅ Отправлен файл с промтом для {user_name}")
-
-        await asyncio.sleep(0.5)
-
-        # Сообщение 2: Дополнительный текст
-        await message.reply_text(
-            "💛 *Кстати!* Внутри промта есть вкладки:\n\n"
-            "💛 *«Слова поддержки для каждого дня»* — когда тебя некому поддержать\n"
-            "🌙 *«Вечерняя рефлексия»* — чтобы завершить день с опорой и осознанностью\n\n"
-            "Если появятся вопросы — я всегда рядом.",
-            parse_mode="Markdown"
-        )
-        logger.info(f"✅ Отправлено дополнительное сообщение для {user_name}")
 
     except Exception as e:
         logger.error(f"❌ Ошибка при отправке промта: {e}")
