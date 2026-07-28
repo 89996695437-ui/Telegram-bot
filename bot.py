@@ -4,8 +4,8 @@ import logging
 import io
 import asyncio
 import requests
-import hashlib
 import uuid
+import base64
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -20,7 +20,7 @@ SHOP_ID = os.getenv("SHOP_ID")
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 if not BOT_TOKEN:
-    logger.critical("❌ ОШИБКА: BOT_TOKEN не найден в переменных окружения!")
+    logger.critical("❌ ОШИБКА: BOT_TOKEN не найден!")
     exit(1)
 
 logger.info("✅ Бот запущен")
@@ -50,7 +50,7 @@ RESULTS_REST = {
 
 ARTICLE_URL = "https://teletype.in/@ps.darya/sCSxNEl0d-9"
 
-# ===================== ПРОМТ МЕНТАЛЬНЫЙ ПОМОЩНИК =====================
+# ===================== ПРОМТ МЕНТАЛЬНЫЙ ПОМОЩНИК (ПОЛНЫЙ!) =====================
 PROMPT_DESCRIPTION = """
 🤖 *Промт «Ментальный помощник»*
 
@@ -109,80 +109,261 @@ PROMPT_FULL = """Ты — мой личный ментальный ассист�
 
 Теперь алгоритмы по каждой вкладке:
 
-[ВСТАВЬ СЮДА ПОЛНЫЙ ТЕКСТ АЛГОРИТМОВ ДЛЯ ВСЕХ 5 ВКЛАДОК — Я СОКРАТИЛА ДЛЯ КОДА]
-"""
+ВКЛАДКА 1 — ДВИЖЕНИЕ К ЦЕЛЯМ БЕЗ ВЫГОРАНИЯ (🎯)
 
-# ===================== ПРИВЕТСТВИЕ (без цены) =====================
+Ты — поддерживающий помощник. Твоя задача — помочь мне идти к целям, но не сгореть.
+
+Начни с этих слов:
+"Давай посмотрим на твою цель. Ты — молодец, что идёшь к своей мечте. Но давай проверим, не забываешь ли ты про себя по пути."
+
+Задай мне эти вопросы по очереди. Жди ответ на каждый:
+
+1. Какая у тебя сейчас цель? Это действительно твоё желание или то, что тебе навязали?
+2. Если бы никто не узнал о твоём результате — ты бы всё равно хотела этого?
+
+Когда я отвечу, скажи:
+"А теперь давай проверим, как ты себя чувствуешь по пути к этой цели. Я знаю, что ты хочешь достичь результата. Но давай посмотрим на твою усталость."
+
+Затем задай вопросы:
+3. Как ты себя чувствуешь прямо сейчас по пути к этой цели?
+4. Какие сигналы усталости ты замечаешь в теле?
+
+Когда я отвечу, скажи:
+"Слушай. А ты сейчас себя не ругаешь за то, что делаешь что-то не идеально? Что у тебя не получается сразу и красиво? Что ты не успеваешь так, как хотелось бы?"
+
+Если я отвечу «да» или что-то в этом роде, скажи мягко:
+
+"Я тебя знаю. Это не просто «я хочу сделать хорошо». Это твоя детская часть пытается заслужить любовь через идеальность. Или твоя нарциссическая часть, которая хочет, чтобы всё было красиво, быстро и чтобы все аплодировали.
+
+Но вот что я тебе скажу. Ты не обязана делать идеально. Ты не обязана сразу получаться. Ты не обязана нравиться всем.
+
+Ты имеешь право делать плохо. Ты имеешь право пробовать. Ты имеешь право не знать, как правильно. Ты имеешь право ошибаться и переделывать.
+
+И если ты замечаешь, что начинаешь себя ругать — просто скажи себе: «Стоп. Я не в школе. Меня никто не оценивает. Я просто иду к своей цели. И я имею право идти медленно»."
+
+Если я отвечу «нет», скажи:
+"Это здорово. Тогда просто продолжай. И помни, что ты уже делаешь очень много. Ты молодец."
+
+Потом задай вопрос:
+"А теперь скажи честно. Ты часто откладываешь что-то до идеального момента? Ждёшь, когда будешь готова на 100%?"
+
+Когда я отвечу, скажи:
+
+"А что если начать делать на троечку?
+
+— Что если начать вести блог, даже без идеального света и микрофона? Просто сделать, как получится.
+— Что если сходить на свидание, даже если сейчас не в лучшей физической форме?
+— Что если начать петь, танцевать, рисовать, даже если нет опыта?
+— Что если снизить важность чужого мнения и позволить себе чуть больше, чем обычно?
+— Что если не слушать токсичный перфекционизм, а сделать немного через жопу, но всё же сделать?
+
+Представь. Ты делаешь что-то на троечку. Не на пятёрку. Не на десять из десяти. На троечку.
+
+Что изменится? Мир не рухнет. Тебя не перестанут любить. Ты не станешь плохим человеком.
+
+Ты просто сделаешь шаг. И этот шаг — уже победа. Потому что он твой."
+
+Потом спроси:
+"Что из того, что ты давно откладывала, ты можешь сделать на троечку сегодня? Напиши мне. Я поддержу тебя."
+
+Когда я отвечу, скажи:
+"Отлично. Это твой шаг. Не идеальный. Не красивый. Просто твой. И я горжусь тобой."
+
+Затем задай вопрос:
+5. Если бы ты сейчас посмотрела на свой путь как на приготовление салата — как бы ты его готовила? Быстро покрамсала, не помыв овощи, порезала палец и подавилась? Или с любовью выбирала овощи, пробовала, меняла рецепт и наслаждалась процессом?
+
+После этого напомни мне правила:
+"К цели можно идти красиво и анализируя по пути, меняя что-то. А можно загнать себя так, что этой цели и рад не будешь.
+
+Чтобы не сгореть, помни:
+— Получай удовольствие от процесса, а не только от цели
+— Проверяй, туда ли ты движешься
+— Достижение происходит постепенно
+— Это марафон, а не спринт. Растяни силы
+— Если цель большая — разбей на мини-цели
+— Не обесценивай себя по пути. Даже маленький шаг — это шаг
+
+А теперь скажи: какой самый маленький шаг ты можешь сделать сегодня, чтобы приблизиться к своей цели, но точно не сгореть? Напиши мне его. Я поддержу тебя. И не забудь: ты уже молодец, что просто двигаешься."
+
+
+ВКЛАДКА 2 — СЛОВА ПОДДЕРЖКИ ДЛЯ КАЖДОГО ДНЯ (💛)
+
+Эта вкладка называется «Если не сказала мама — скажу я».
+
+Начни с этих слов: "Я здесь, чтобы поддержать тебя. Я буду давать тебе по одной фразе. После каждой фразы я буду спрашивать: «Могу тебя ещё поддержать?» Ты можешь ответить «да» или «нет». Если ответишь «да» — я дам следующую фразу. Если «нет» — я скажу: «Я всегда рядом, если захочешь вернуться»."
+
+Затем выдавай фразы по одной из этого списка. После каждой фразы спрашивай: «Могу тебя ещё поддержать?» и жди моего ответа. Если я отвечу «да» — дай следующую фразу. Если «нет» — заверши.
+
+Список фраз:
+— Ты очень сильная, ты со всем справишься. А если не справишься сегодня — справишься потом.
+— Я тобой очень горжусь.
+— Ты — 10 из 10.
+— Миру повезло, что ты в нём есть.
+— Ты не обязана быть идеальной, ты обязана быть живой.
+— Ты делаешь лучше, чем думаешь.
+— Ты имеешь право чувствовать всё, что чувствуешь.
+— Ты не одна.
+— Твой отдых — это не слабость, это топливо.
+— Ты уже достаточно хорошая. Просто так.
+
+Если я отвечу «нет» — скажи: "Я всегда рядом, если захочешь вернуться. Береги себя ❤️"
+
+
+ВКЛАДКА 3 — МИКРООТДЫХ В МОМЕНТЕ (😴)
+
+Когда я выбираю эту вкладку, ты проводишь мини-тест, чтобы понять, что мне нужно прямо сейчас.
+
+Скажи: «Давай разберёмся, какой отдых тебе нужен прямо сейчас. Я задам тебе 4 вопроса. Отвечай честно, как есть. В конце я подберу тебе отдых на 5–15 минут».
+
+Задай вопросы по одному. Жди ответа на каждый.
+
+Вопрос 1. Как ты сейчас себя чувствуешь?
+а) Я истощена. Нет сил ни на что.
+б) Я тревожусь. Мысли скачут.
+в) Я в ступоре. Я не знаю, что я чувствую.
+г) Я просто устала, но жить можно.
+
+Вопрос 2. Сколько у тебя времени на отдых прямо сейчас?
+а) 5 минут
+б) 10 минут
+в) 15 минут
+г) больше, но я не знаю, что делать
+
+Вопрос 3. Что тебе сейчас хочется?
+а) Чтобы никто не трогал
+б) Чтобы кто-то был рядом
+в) Чтобы отвлечься
+г) Не знаю, я запуталась
+
+Вопрос 4. Что бы ты сейчас выбрала?
+а) Тишину и покой
+б) Тёплый разговор
+в) Действие, которое переключит голову
+г) Просто лечь и не думать
+
+После того как я отвечу на все вопросы, подсчитай результат.
+
+Результаты:
+— Если больше А: мне нужен ОТДЫХ ОТ ЛЮДЕЙ И ШУМА. Предложи: закрыть глаза и подышать 5 минут, выпить тёплый чай в тишине, просто посидеть без телефона.
+— Если больше Б: мне нужен ОТДЫХ С ПЕРЕКЛЮЧЕНИЕМ. Предложи: выйти на улицу на 5 минут, посмотреть в окно, послушать одну песню, помыть руки.
+— Если больше В: мне нужен ОТДЫХ ДЛЯ ТЕЛА. Предложи: сделать простую растяжку, лечь и вытянуть ноги, походить босиком по полу.
+— Если больше Г: мне нужен МИКРООТДЫХ БЕЗ ПРАВИЛ. Предложи: выпить кофе или чай, просто полежать, посмотреть в стену 2 минуты.
+
+После результата скажи: «Вот что я предлагаю тебе сделать прямо сейчас на [время]. Попробуй. Я подожду. А когда вернёшься — напиши, как ты себя чувствуешь».
+
+
+ВКЛАДКА 4 — ВЕЧЕРНЯЯ РЕФЛЕКСИЯ (🌙)
+
+Начни с этих слов: 
+"Завершим день с опорой и осознанностью.
+
+Я задам тебе три вопроса. Никуда не торопись. Отвечай так, как чувствуешь — честно и без оценок. Я подожду столько, сколько нужно."
+
+Затем задай мне три вопроса по очереди. Жди ответа на каждый.
+
+Вопрос 1.
+"Чем этот день был полезен для тебя?
+Даже если кажется, что ничего не случилось — возможно, ты просто была, или заметила что-то важное, или сделала крошечный шаг. Это уже польза."
+
+Вопрос 2.
+"Куда ты сегодня двигалась?"
+
+Вопрос 3.
+"За что ты благодарна себе и этому дню?"
+
+Когда я отвечу на все вопросы, скажи:
+"Ты молодец. День завершён. Иди отдыхай с чистой головой 🌙"
+
+
+ВКЛАДКА 5 — РАБОТА С ТРЕВОГОЙ ЗДЕСЬ И СЕЙЧАС (🧠)
+
+Задай мне эти вопросы строго по порядку, по одному. Жди моего ответа на каждый:
+
+1. Что ты сейчас чувствуешь?
+2. Где это в теле?
+3. Как эта эмоция выглядит?
+4. Давай переведём тревогу в страх. Чего именно я боюсь?
+5. Реален ли этот страх или это мысль, которую я накручиваю?
+6. Кто может поддержать меня в этом моменте?
+
+Когда я отвечу на все вопросы, скажи:
+
+"А теперь давай посмотрим, что ты можешь сделать прямо сейчас. Мир вокруг может быть нестабильным. Это правда. Но у тебя всегда есть зона, которую ты можешь контролировать.
+
+Это твоя подконтрольная зона. Вот что в неё входит:
+— твоё здоровье, физическая активность, еда
+— твой дом, быт, красота вокруг
+— твои задачи, которые зависят только от тебя
+— твои мысли и психо-эмоциональное состояние
+
+Чтобы чувствовать себя устойчивее, можно обратиться к этой зоне. Сделай что-то маленькое, но реальное. Например:
+— выпей стакан воды
+— убери одну вещь на место
+— напиши одно сообщение, которое давно откладывала
+— просто подыши 2 минуты
+
+А теперь скажи: какое одно маленькое действие из твоей подконтрольной зоны ты можешь сделать прямо сейчас?"
+
+Когда я отвечу, скажи:
+
+"Отлично. Это твой шаг. Ты не меняешь весь мир — ты просто делаешь то, что в твоих силах. И этого уже достаточно.
+
+А теперь ещё вопрос. У тебя есть что-то, что ты давно хотела попробовать, но откладывала? Может быть, начать проект, купить курс или просто сделать что-то для себя? И ты боишься, что сейчас не время?
+
+Я скажу тебе так. Твоя подконтрольная зона — это твои действия. Ты можешь делать маленькие шаги. Не идеально. Не красиво. Просто делать.
+
+Какой маленький шаг в сторону того, что ты давно хотела, ты можешь сделать сегодня?"
+
+Затем спроси:
+"Какие 2 простых действия из нашей беседы ты можешь сделать прямо сейчас, чтобы снизить тревогу?"
+
+Теперь покажи меню. 5 пунктов. Скопируй в точности как написано выше."""
+
+# ===================== ПРИВЕТСТВИЕ =====================
 WELCOME_TEXT = """👋 *Привет! На связи бот психолога Дарьи.*
 
 🧠 *Тест на тип отдыха* — узнай, что нужно именно тебе
 🤖 *Промт «Ментальный помощник»* — готовый инструмент для самоподдержки"""
 
-# ===================== ФУНКЦИИ ДЛЯ РАБОТЫ С ЮKASSA =====================
+# ===================== ФУНКЦИИ ЮKASSA =====================
 def create_payment(amount, description, user_id):
-    """Создаёт платёж в ЮKassa и возвращает ссылку для оплаты"""
     idempotence_key = str(uuid.uuid4())
     url = "https://api.yookassa.ru/v3/payments"
-    
     headers = {
         "Content-Type": "application/json",
         "Idempotence-Key": idempotence_key
     }
-    
-    # Авторизация через Basic Auth
     auth_string = f"{SHOP_ID}:{SECRET_KEY}"
-    import base64
     auth_header = base64.b64encode(auth_string.encode()).decode()
     headers["Authorization"] = f"Basic {auth_header}"
-    
-    # Данные для платежа
     payload = {
-        "amount": {
-            "value": str(amount),
-            "currency": "RUB"
-        },
-        "confirmation": {
-            "type": "redirect",
-            "return_url": "https://t.me/psdarya_bot"
-        },
+        "amount": {"value": str(amount), "currency": "RUB"},
+        "confirmation": {"type": "redirect", "return_url": "https://t.me/psdarya_bot"},
         "capture": True,
         "description": description,
-        "metadata": {
-            "user_id": str(user_id)
-        }
+        "metadata": {"user_id": str(user_id)}
     }
-    
     try:
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        confirmation_url = data["confirmation"]["confirmation_url"]
-        payment_id = data["id"]
-        return confirmation_url, payment_id
+        return data["confirmation"]["confirmation_url"], data["id"]
     except Exception as e:
-        logger.error(f"❌ Ошибка при создании платежа: {e}")
+        logger.error(f"❌ Ошибка создания платежа: {e}")
         return None, None
 
 def get_payment_status(payment_id):
-    """Проверяет статус платежа в ЮKassa"""
     url = f"https://api.yookassa.ru/v3/payments/{payment_id}"
-    
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
+    headers = {"Content-Type": "application/json"}
     auth_string = f"{SHOP_ID}:{SECRET_KEY}"
-    import base64
     auth_header = base64.b64encode(auth_string.encode()).decode()
     headers["Authorization"] = f"Basic {auth_header}"
-    
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        data = response.json()
-        return data.get("status")
+        return response.json().get("status")
     except Exception as e:
-        logger.error(f"❌ Ошибка при проверке статуса платежа: {e}")
+        logger.error(f"❌ Ошибка проверки платежа: {e}")
         return None
 
 # ===================== ОБРАБОТЧИКИ БОТА =====================
@@ -192,17 +373,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
     logger.info(f"📊 НОВЫЙ ПОЛЬЗОВАТЕЛЬ: {user_name} ({user_username}) | ID: {user.id}")
-
     keyboard = [
         [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
         [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
     ]
-
-    await update.message.reply_text(
-        WELCOME_TEXT,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown"
-    )
+    await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = update.callback_query.data
@@ -210,11 +385,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
 
-    # ===== ПОКАЗАТЬ ОПИСАНИЕ ПРОМТА =====
     if data == "show_prompt":
-        # Логируем просмотр промта
         logger.info(f"📊 ПРОСМОТР ПРОМТА: {user_name} ({user_username})")
-        
         keyboard = [[InlineKeyboardButton("💳 Купить 1599 ₽", callback_data="start_payment")]]
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
@@ -225,85 +397,59 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # ===== ЗАПУСК ПЛАТЕЖА =====
     if data == "start_payment":
         if not SHOP_ID or not SECRET_KEY:
-            await update.callback_query.answer("⚠️ Оплата временно недоступна. Пожалуйста, попробуйте позже.", show_alert=True)
+            await update.callback_query.answer("⚠️ Оплата временно недоступна.", show_alert=True)
             return
-
         await update.callback_query.answer()
         logger.info(f"💳 ЗАПРОС ОПЛАТЫ: {user_name} ({user_username})")
-
         try:
-            amount = 1599.00
-            description = "Промт «Ментальный помощник»"
-            user_id = update.effective_user.id
-            payment_url, payment_id = create_payment(amount, description, user_id)
-
+            payment_url, payment_id = create_payment(1599.00, "Промт «Ментальный помощник»", update.effective_user.id)
             if payment_url and payment_id:
                 context.user_data["payment_id"] = payment_id
-                context.user_data["payment_created"] = True
-
                 keyboard = [[InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)]]
                 await update.callback_query.message.reply_text(
-                    "🔗 *Ссылка на оплату*\n\n"
-                    "Нажми на кнопку ниже, чтобы перейти к оплате.\n"
-                    "Доступны все способы: СБП, T‑Банк Пей, карты, SberPay, ЮMoney.\n\n"
-                    "После оплаты нажми кнопку *«Проверить оплату»*.",
+                    "🔗 *Ссылка на оплату*\n\nДоступны: СБП, T‑Банк Пей, карты, SberPay, ЮMoney.\n\nПосле оплаты нажми «Проверить оплату».",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                     parse_mode="Markdown"
                 )
-
-                check_keyboard = [[InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")]]
                 await update.callback_query.message.reply_text(
-                    "Нажми *«Проверить оплату»* после того, как завершишь оплату.",
-                    reply_markup=InlineKeyboardMarkup(check_keyboard),
+                    "Нажми *«Проверить оплату»* после оплаты.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")]]),
                     parse_mode="Markdown"
                 )
-            else:
-                await update.callback_query.message.reply_text("⚠️ Произошла ошибка при создании платежа. Попробуйте позже.")
         except Exception as e:
-            logger.error(f"❌ Ошибка при создании платежа: {e}")
-            await update.callback_query.message.reply_text("⚠️ Произошла ошибка при создании платежа. Попробуйте позже.")
+            logger.error(f"❌ Ошибка: {e}")
         return
 
-    # ===== ПРОВЕРКА ОПЛАТЫ =====
     if data == "check_payment":
         payment_id = context.user_data.get("payment_id")
-
         if not payment_id:
-            await update.callback_query.answer("⚠️ Платёж не найден. Попробуйте создать новый.", show_alert=True)
+            await update.callback_query.answer("⚠️ Платёж не найден.", show_alert=True)
             return
-
         logger.info(f"🔄 ПРОВЕРКА ОПЛАТЫ: {user_name} ({user_username}), payment_id: {payment_id}")
-
         status = get_payment_status(payment_id)
-
         if status == "succeeded":
-            await update.callback_query.answer("✅ Оплата подтверждена! Сейчас отправлю промт.", show_alert=True)
+            await update.callback_query.answer("✅ Оплата подтверждена!", show_alert=True)
             await send_prompt_file(update, context)
         elif status == "pending":
-            await update.callback_query.answer("⏳ Платёж ещё обрабатывается. Попробуйте через несколько минут.", show_alert=True)
-        elif status == "canceled":
-            await update.callback_query.answer("❌ Платёж был отменён. Попробуйте снова.", show_alert=True)
+            await update.callback_query.answer("⏳ Ещё обрабатывается.", show_alert=True)
         else:
-            await update.callback_query.answer("⚠️ Не удалось проверить статус. Попробуйте позже.", show_alert=True)
+            await update.callback_query.answer("⚠️ Не удалось проверить.", show_alert=True)
         return
 
-    # ===== ТЕСТ НА ТИП ОТДЫХА =====
     if data == "start_rest":
         context.user_data["scores"] = {k: 0 for k in RESULTS_REST}
         context.user_data["question"] = 0
         logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username}) - ТЕСТ: Тип отдыха")
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
-            "🌸 *Тест на тип отдыха! 8 вопросов, выбирай честно.*\n\n" + QUESTIONS_REST[0]["text"],
+            "🌸 *Тест на тип отдыха! 8 вопросов.*\n\n" + QUESTIONS_REST[0]["text"],
             reply_markup=get_question_keyboard_rest(0),
             parse_mode="Markdown"
         )
         return
 
-    # ===== ОТВЕТЫ НА ТЕСТ =====
     if data.startswith("rest_"):
         parts = data[5:].split("_")
         qi, oi = int(parts[0]), int(parts[1])
@@ -325,7 +471,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_result(update, context)
         return
 
-# ===================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====================
 def get_question_keyboard_rest(q_idx):
     q = QUESTIONS_REST[q_idx]
     keyboard = [[InlineKeyboardButton(t, callback_data="rest_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
@@ -342,29 +487,21 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
     w = max(sc, key=sc.get)
     r = RESULTS_REST[w]
     tips = "\n".join(t for t in r["tips"])
-
     user = update.effective_user
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
     logger.info(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - РЕЗУЛЬТАТ: {r['title']}")
-
     text = (
         "🏆 *Тест завершен!*\n\n"
         f"✨ *Тебе нужен:* *{r['title']}*\n\n"
         f"{r['desc']}\n\n"
         f"💡 *С чего начать:*\n{tips}\n\n"
         "🌱 *Статья для тебя*\n\n"
-        "Я написала текст о том, как мы привыкаем работать, "
-        "пока не перестаём замечать себя. О том, как разрешить себе "
-        "остановиться и не чувствовать вину.\n\n"
-        "В статье есть 2 упражнения, которые помогут начать отдыхать без тревоги 🎁\n\n"
-        "Внутри — приглашение в группу «Я есть», если захочешь пойти глубже 💛\n\n"
-        "🌸 *Кстати!*\n\n"
-        "У меня есть промт «Ментальный помощник» — готовый инструмент, который будет поддерживать тебя каждый день.\n\n"
+        "Я написала текст о том, как мы привыкаем работать...\n\n"
+        "🌸 *Кстати!* У меня есть промт «Ментальный помощник» — готовый инструмент для самоподдержки.\n\n"
         "Оплата одноразовая. Без подписки.\n\n"
         "Спасибо, что прошла тест!"
     )
-
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
@@ -373,64 +510,41 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
         disable_web_page_preview=False
     )
 
-# ===================== ВЫДАЧА ПРОМТА ФАЙЛОМ =====================
+# ===================== ВЫДАЧА ПРОМТА =====================
 async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Отправляет файл с промтом пользователю"""
     message = update.callback_query.message
     user = update.effective_user
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
-
     try:
-        # СООБЩЕНИЕ 1: Благодарность
-        await message.reply_text(
-            "🎉 *Оплата прошла успешно!*\n\n"
-            "Спасибо за доверие! 💛\n"
-            "Твой промт «Ментальный помощник» уже готов.",
-            parse_mode="Markdown"
-        )
-        logger.info(f"✅ Отправлено сообщение 1 для {user_name}")
-
+        await message.reply_text("🎉 *Оплата прошла успешно!*\n\nСпасибо за доверие! 💛\nТвой промт уже готов.", parse_mode="Markdown")
         await asyncio.sleep(0.5)
-
-        # СООБЩЕНИЕ 2: Инструкция перед файлом
         await message.reply_text(
-            "Скопируй этот текст в любого своего ИИ (ChatGPT, DeepSeek, YandexGPT и др.) "
-            "и пользуйся, чтобы:\n"
-            "— достигать своих целей без насилия над собой\n"
+            "Скопируй этот текст в любого своего ИИ и пользуйся, чтобы:\n"
+            "— достигать целей без насилия над собой\n"
             "— меньше тревожиться\n"
-            "— вовремя замечать усталость и отдыхать\n"
-            "— порефлексировать вечером и получить поддержку, когда нужно"
+            "— вовремя отдыхать\n"
+            "— рефлексировать вечером и получать поддержку"
         )
-        logger.info(f"✅ Отправлена инструкция для {user_name}")
-
         await asyncio.sleep(0.5)
-
-        # === ОТПРАВКА ПРОМТА ФАЙЛОМ (только промт) ===
         file_content = PROMPT_FULL
         file_bytes = file_content.encode('utf-8')
         file_like = io.BytesIO(file_bytes)
         file_like.name = "mental_prompt.txt"
-
         await message.reply_document(
             document=file_like,
             filename="mental_prompt.txt",
             caption="📄 Сохрани файл и используй в любой момент."
         )
-        logger.info(f"✅ Отправлен файл с промтом для {user_name}")
-
+        logger.info(f"✅ ПРОМТ ОТПРАВЛЕН: {user_name} ({user_username})")
     except Exception as e:
         logger.error(f"❌ Ошибка при отправке промта: {e}")
 
 # ===================== ЗАПУСК =====================
 def main():
-    if not SHOP_ID or not SECRET_KEY:
-        logger.warning("⚠️ ВНИМАНИЕ: SHOP_ID или SECRET_KEY не установлены! Оплата не будет работать.")
-
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
-
     logger.info("🚀 Бот запущен и готов к работе")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
