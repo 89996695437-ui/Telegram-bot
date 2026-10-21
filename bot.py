@@ -374,12 +374,15 @@ def get_payment_status(payment_id):
 
 # ===================== ВРЕМЕННАЯ ФУНКЦИЯ ДЛЯ FILE_ID =====================
 async def get_video_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Временная функция для получения file_id видео"""
-    video = update.message.video
-    if video:
-        await update.message.reply_text(f"Ваш file_id: `{video.file_id}`", parse_mode="Markdown")
+    """Временная функция для получения file_id (ловит ВСЁ)"""
+    if update.message.video:
+        await update.message.reply_text(f"Ваш file_id (видео): `{update.message.video.file_id}`", parse_mode="Markdown")
+    elif update.message.document:
+        await update.message.reply_text(f"Ваш file_id (файл): `{update.message.document.file_id}`", parse_mode="Markdown")
+    elif update.message.text:
+        await update.message.reply_text(f"Вы прислали текст: {update.message.text}")
     else:
-        await update.message.reply_text("Это не видео. Отправь видео.")
+        await update.message.reply_text("Я получил сообщение, но не вижу в нём видео или файла.")
 
 # ===================== ОБРАБОТЧИКИ БОТА =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -534,9 +537,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await show_result(update, context)
-        return
-
-def get_question_keyboard_rest(q_idx):
+        returndef get_question_keyboard_rest(q_idx):
     q = QUESTIONS_REST[q_idx]
     keyboard = [[InlineKeyboardButton(t, callback_data="rest_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
     return InlineKeyboardMarkup(keyboard)
@@ -699,7 +700,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.VIDEO, get_video_id))  # ВРЕМЕННО ДЛЯ FILE_ID
+    app.add_handler(MessageHandler(filters.ALL, get_video_id))  # ВРЕМЕННО ДЛЯ FILE_ID
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_review_text))  # ДЛЯ ОТЗЫВОВ
     logger.info("🚀 Бот запущен и готов к работе")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
