@@ -8,11 +8,12 @@ import uuid
 import base64
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # ========== ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ==========
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -50,7 +51,8 @@ RESULTS_REST = {
 
 ARTICLE_URL = "https://teletype.in/@ps.darya/sCSxNEl0d-9"
 
-# ===================== ПРОМТ МЕНТАЛЬНЫЙ ПОМОЩНИК (ПОЛНЫЙ!) =====================
+# ===================== ТОВАР 1: ПРОМТ =====================
+PROMPT_PRICE = 1599.00
 PROMPT_DESCRIPTION = """
 🤖 *Промт «Ментальный помощник»*
 
@@ -290,11 +292,44 @@ PROMPT_FULL = """Ты — мой личный ментальный ассист�
 
 Теперь покажи меню. Только меню и фраза. Без лишнего текста."""
 
+# ===================== ТОВАР 2: ЛЕКЦИЯ (ЗАГЛУШКА) =====================
+LECTURE_PRICE = 2599.00
+LECTURE_VIDEO_FILE_ID = "СЮДА_ВСТАВИМ_FILE_ID_ПОЗЖЕ"  # Заглушка
+
+LECTURE_DESCRIPTION = """
+🎥 *Лекция «Либо идеально, либо никак»*
+
+*Как выйти из порочного круга мечт перед сном, но ничего-не-делания в реальности?*
+
+Если ты счастливый обладатель нарциссической травмы, которая проявляется так:
+
+— Каждый день даёшь себе обещание начать с понедельника, но когда он наступает — воз и ныне там.
+— Если не уверена на 100%, что получится идеально — даже не начинаешь.
+— Требуешь от себя всегда идеального результата.
+— Перед сном фантазируешь, как всё могло бы быть по-другому, но утром мотивация испаряется.
+— Чувствуешь в себе огромный потенциал, но до действий в реальности так и не доходит.
+— Не обладаешь искусством маленьких шагов.
+— Имеешь талант к прокрастинации.
+— Боишься, что если начнёшь что-то делать, получишь осуждение других.
+
+*На лекции мы разберём:*
+• Откуда берётся этот механизм
+• Как перестать ждать идеального момента
+• Как начать делать маленькие шаги без насилия над собой
+
+💰 *Стоимость:* 2599 ₽
+
+После оплаты лекция придёт в этом чате.
+"""
+
 # ===================== ПРИВЕТСТВИЕ =====================
 WELCOME_TEXT = """👋 *Привет! На связи бот психолога Дарьи.*
 
-🧠 *Тест на тип отдыха* — узнай, что нужно именно тебе
-🤖 *Промт «Ментальный помощник»* — готовый инструмент для самоподдержки"""
+Выбери, что тебе интересно:
+
+🎥 *Лекция «Либо идеально, либо никак»*
+🤖 *Промт «Ментальный помощник»*
+🧠 *Тест на тип отдыха*"""
 
 # ===================== ФУНКЦИИ ЮKASSA =====================
 def create_payment(amount, description, user_id):
@@ -337,6 +372,15 @@ def get_payment_status(payment_id):
         logger.error(f"❌ Ошибка проверки платежа: {e}")
         return None
 
+# ===================== ВРЕМЕННАЯ ФУНКЦИЯ ДЛЯ FILE_ID =====================
+async def get_video_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Временная функция для получения file_id видео"""
+    video = update.message.video
+    if video:
+        await update.message.reply_text(f"Ваш file_id: `{video.file_id}`", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("Это не видео. Отправь видео.")
+
 # ===================== ОБРАБОТЧИКИ БОТА =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -344,9 +388,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
     logger.info(f"📊 НОВЫЙ ПОЛЬЗОВАТЕЛЬ: {user_name} ({user_username}) | ID: {user.id}")
+
     keyboard = [
-        [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
-        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
+        [InlineKeyboardButton("🎥 Лекция «Либо идеально, либо никак»", callback_data="show_lecture")],
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")],
+        [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")]
     ]
     await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -356,9 +402,22 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
 
+    # ===== ПОКАЗАТЬ ЛЕКЦИЮ =====
+    if data == "show_lecture":
+        logger.info(f"📊 ПРОСМОТР ЛЕКЦИИ: {user_name} ({user_username})")
+        keyboard = [[InlineKeyboardButton(f"💳 Купить {int(LECTURE_PRICE)} ₽", callback_data="pay_lecture")]]
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(
+            LECTURE_DESCRIPTION,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown"
+        )
+        return
+
+    # ===== ПОКАЗАТЬ ПРОМТ =====
     if data == "show_prompt":
         logger.info(f"📊 ПРОСМОТР ПРОМТА: {user_name} ({user_username})")
-        keyboard = [[InlineKeyboardButton("💳 Купить 1599 ₽", callback_data="start_payment")]]
+        keyboard = [[InlineKeyboardButton(f"💳 Купить {int(PROMPT_PRICE)} ₽", callback_data="pay_prompt")]]
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             PROMPT_DESCRIPTION,
@@ -368,24 +427,26 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if data == "start_payment":
+    # ===== ОПЛАТА ЛЕКЦИИ =====
+    if data == "pay_lecture":
         if not SHOP_ID or not SECRET_KEY:
             await update.callback_query.answer("⚠️ Оплата временно недоступна.", show_alert=True)
             return
         await update.callback_query.answer()
-        logger.info(f"💳 ЗАПРОС ОПЛАТЫ: {user_name} ({user_username})")
+        logger.info(f"💳 ЗАПРОС ОПЛАТЫ (ЛЕКЦИЯ): {user_name} ({user_username})")
         try:
-            payment_url, payment_id = create_payment(1599.00, "Промт «Ментальный помощник»", update.effective_user.id)
+            payment_url, payment_id = create_payment(LECTURE_PRICE, "Лекция «Либо идеально, либо никак»", update.effective_user.id)
             if payment_url and payment_id:
                 context.user_data["payment_id"] = payment_id
+                context.user_data["payment_item"] = "lecture"
                 keyboard = [[InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)]]
                 await update.callback_query.message.reply_text(
-                    "🔗 *Ссылка на оплату*\n\nДоступны: СБП, T‑Банк Пей, карты, SberPay, ЮMoney.\n\nПосле оплаты нажми «Проверить оплату».",
+                    f"🔗 *Оплата лекции — {int(LECTURE_PRICE)} ₽*\n\nПосле оплаты нажми «Проверить оплату».",
                     reply_markup=InlineKeyboardMarkup(keyboard),
                     parse_mode="Markdown"
                 )
                 await update.callback_query.message.reply_text(
-                    "Нажми *«Проверить оплату»* после оплаты.",
+                    "Нажми *«Проверить оплату»* после того, как оплатишь.",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")]]),
                     parse_mode="Markdown"
                 )
@@ -393,26 +454,59 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"❌ Ошибка: {e}")
         return
 
+    # ===== ОПЛАТА ПРОМТА =====
+    if data == "pay_prompt":
+        if not SHOP_ID or not SECRET_KEY:
+            await update.callback_query.answer("⚠️ Оплата временно недоступна.", show_alert=True)
+            return
+        await update.callback_query.answer()
+        logger.info(f"💳 ЗАПРОС ОПЛАТЫ (ПРОМТ): {user_name} ({user_username})")
+        try:
+            payment_url, payment_id = create_payment(PROMPT_PRICE, "Промт «Ментальный помощник»", update.effective_user.id)
+            if payment_url and payment_id:
+                context.user_data["payment_id"] = payment_id
+                context.user_data["payment_item"] = "prompt"
+                keyboard = [[InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)]]
+                await update.callback_query.message.reply_text(
+                    f"🔗 *Оплата промта — {int(PROMPT_PRICE)} ₽*\n\nПосле оплаты нажми «Проверить оплату».",
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode="Markdown"
+                )
+                await update.callback_query.message.reply_text(
+                    "Нажми *«Проверить оплату»* после того, как оплатишь.",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Проверить оплату", callback_data="check_payment")]]),
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            logger.error(f"❌ Ошибка: {e}")
+        return
+
+    # ===== ПРОВЕРКА ОПЛАТЫ =====
     if data == "check_payment":
         payment_id = context.user_data.get("payment_id")
+        item_type = context.user_data.get("payment_item")
         if not payment_id:
             await update.callback_query.answer("⚠️ Платёж не найден.", show_alert=True)
             return
-        logger.info(f"🔄 ПРОВЕРКА ОПЛАТЫ: {user_name} ({user_username}), payment_id: {payment_id}")
+        logger.info(f"🔄 ПРОВЕРКА ОПЛАТЫ ({item_type}): {user_name} ({user_username})")
         status = get_payment_status(payment_id)
         if status == "succeeded":
             await update.callback_query.answer("✅ Оплата подтверждена!", show_alert=True)
-            await send_prompt_file(update, context)
+            if item_type == "lecture":
+                await send_lecture(update, context)
+            else:
+                await send_prompt_file(update, context)
         elif status == "pending":
-            await update.callback_query.answer("⏳ Ещё обрабатывается.", show_alert=True)
+            await update.callback_query.answer("⏳ Ещё обрабатывается. Попробуй через минуту.", show_alert=True)
         else:
-            await update.callback_query.answer("⚠️ Не удалось проверить.", show_alert=True)
+            await update.callback_query.answer("⚠️ Не удалось проверить. Попробуй позже.", show_alert=True)
         return
 
+    # ===== ТЕСТ =====
     if data == "start_rest":
         context.user_data["scores"] = {k: 0 for k in RESULTS_REST}
         context.user_data["question"] = 0
-        logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username}) - ТЕСТ: Тип отдыха")
+        logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username})")
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             "🌸 *Тест на тип отдыха! 8 вопросов.*\n\n" + QUESTIONS_REST[0]["text"],
@@ -449,8 +543,9 @@ def get_question_keyboard_rest(q_idx):
 
 def get_final_keyboard():
     return [
-        [InlineKeyboardButton("📖 Читать статью", url=ARTICLE_URL)],
-        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
+        [InlineKeyboardButton("🎥 Лекция «Либо идеально, либо никак»", callback_data="show_lecture")],
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")],
+        [InlineKeyboardButton("🧩 Подписаться на Telegram-канал", url="https://t.me/psdaryatyping")]
     ]
 
 async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -467,18 +562,14 @@ async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✨ *Тебе нужен:* *{r['title']}*\n\n"
         f"{r['desc']}\n\n"
         f"💡 *С чего начать:*\n{tips}\n\n"
-        "🌱 *Статья для тебя*\n\n"
-        "Я написала текст о том, как мы привыкаем работать...\n\n"
-        "🌸 *Кстати!* У меня есть промт «Ментальный помощник» — готовый инструмент для самоподдержки.\n\n"
-        "Оплата одноразовая. Без подписки.\n\n"
-        "Спасибо, что прошла тест!"
+        "Другие материалы:"
     )
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
         reply_markup=InlineKeyboardMarkup(get_final_keyboard()),
         parse_mode="Markdown",
-        disable_web_page_preview=False
+        disable_web_page_preview=True
     )
 
 # ===================== ВЫДАЧА ПРОМТА =====================
@@ -508,14 +599,108 @@ async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             caption="📄 Сохрани файл и используй в любой момент."
         )
         logger.info(f"✅ ПРОМТ ОТПРАВЛЕН: {user_name} ({user_username})")
+        await asyncio.sleep(0.5)
+        await message.reply_text(
+            "Другие материалы:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎥 Лекция «Либо идеально, либо никак»", callback_data="show_lecture")],
+                [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
+                [InlineKeyboardButton("🧩 Подписаться на Telegram-канал", url="https://t.me/psdaryatyping")]
+            ]),
+            parse_mode="Markdown"
+        )
     except Exception as e:
         logger.error(f"❌ Ошибка при отправке промта: {e}")
+
+# ===================== ВЫДАЧА ЛЕКЦИИ =====================
+async def send_lecture(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.callback_query.message
+    user = update.effective_user
+    user_name = user.first_name or "Без имени"
+    user_username = f"@{user.username}" if user.username else "без юзернейма"
+    try:
+        await message.reply_text(
+            "🎉 *Оплата прошла успешно!*\n\nСпасибо за доверие! 💛\nСейчас пришлю лекцию.",
+            parse_mode="Markdown"
+        )
+        await asyncio.sleep(0.5)
+        if LECTURE_VIDEO_FILE_ID == "СЮДА_ВСТАВИМ_FILE_ID_ПОЗЖЕ":
+            await message.reply_text(
+                "⚠️ Видео временно недоступно. Пожалуйста, свяжитесь с @daryashpilevskaya.",
+                parse_mode="Markdown"
+            )
+            logger.warning(f"⚠️ FILE_ID лекции не установлен! Пользователь: {user_name}")
+        else:
+            await message.reply_video(
+                video=LECTURE_VIDEO_FILE_ID,
+                caption="🎥 *Лекция «Либо идеально, либо никак»*\n\nПриятного просмотра!",
+                parse_mode="Markdown"
+            )
+            logger.info(f"✅ ЛЕКЦИЯ ОТПРАВЛЕНА: {user_name} ({user_username})")
+        
+        await asyncio.sleep(0.5)
+        # Кнопка отзыва и другие материалы
+        await message.reply_text(
+            "Буду рада, если оставишь отзыв — это поможет делать материалы лучше.\n\n"
+            "Другие материалы:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✍️ Оставить отзыв", callback_data="leave_review")],
+                [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")],
+                [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
+                [InlineKeyboardButton("🧩 Подписаться на Telegram-канал", url="https://t.me/psdaryatyping")]
+            ]),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.error(f"❌ Ошибка при отправке лекции: {e}")
+        await message.reply_text("⚠️ Не удалось отправить видео. Напиши @daryashpilevskaya — пришлём вручную.")
+
+# ===================== ОТЗЫВ =====================
+async def leave_review(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    context.user_data["waiting_for_review"] = True
+    await update.callback_query.message.reply_text(
+        "Напиши свой отзыв одним сообщением и я обязательно его прочитаю.",
+        parse_mode="Markdown"
+    )
+
+async def handle_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("waiting_for_review"):
+        user = update.effective_user
+        user_name = user.first_name or "Без имени"
+        user_username = f"@{user.username}" if user.username else "без юзернейма"
+        review_text = update.message.text
+        
+        logger.info(f"📝 НОВЫЙ ОТЗЫВ от {user_name} (@{user_username}): {review_text}")
+        
+        # Пересылаем отзыв тебе
+        try:
+            await context.bot.send_message(
+                chat_id=282241753,  # Твой ID
+                text=f"📝 *Новый отзыв о лекции*\n\nОт: {user_name} (@{user_username})\n\n{review_text}",
+                parse_mode="Markdown"
+            )
+            await update.message.reply_text(
+                "Спасибо за отзыв! 💛 Очень ценю.",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"❌ Ошибка при пересылке отзыва: {e}")
+            await update.message.reply_text(
+                "Спасибо за отзыв! Я его сохраню.",
+                parse_mode="Markdown"
+            )
+        
+        context.user_data["waiting_for_review"] = False
+        return
 
 # ===================== ЗАПУСК =====================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(MessageHandler(filters.VIDEO, get_video_id))  # ВРЕМЕННО ДЛЯ FILE_ID
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_review_text))  # ДЛЯ ОТЗЫВОВ
     logger.info("🚀 Бот запущен и готов к работе")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
