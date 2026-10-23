@@ -537,7 +537,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         else:
             await show_result(update, context)
-        returndef get_question_keyboard_rest(q_idx):
+        return
+
+def get_question_keyboard_rest(q_idx):
     q = QUESTIONS_REST[q_idx]
     keyboard = [[InlineKeyboardButton(t, callback_data="rest_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
     return InlineKeyboardMarkup(keyboard)
