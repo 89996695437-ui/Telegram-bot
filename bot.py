@@ -375,14 +375,16 @@ def get_payment_status(payment_id):
 # ===================== ВРЕМЕННАЯ ФУНКЦИЯ ДЛЯ FILE_ID =====================
 async def get_video_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Временная функция для получения file_id (ловит ВСЁ)"""
+    logger.info(f"📥 Получено сообщение. Тип: {update.message.effective_attachment}")
+    
     if update.message.video:
-        await update.message.reply_text(f"Ваш file_id (видео): `{update.message.video.file_id}`", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ file_id (видео): `{update.message.video.file_id}`", parse_mode="Markdown")
     elif update.message.document:
-        await update.message.reply_text(f"Ваш file_id (файл): `{update.message.document.file_id}`", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ file_id (файл): `{update.message.document.file_id}`", parse_mode="Markdown")
     elif update.message.text:
         await update.message.reply_text(f"Вы прислали текст: {update.message.text}")
     else:
-        await update.message.reply_text("Я получил сообщение, но не вижу в нём видео или файла.")
+        await update.message.reply_text("Я получил сообщение, но не вижу в нём видео.")
 
 # ===================== ОБРАБОТЧИКИ БОТА =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
