@@ -292,9 +292,9 @@ PROMPT_FULL = """Ты — мой личный ментальный ассист�
 
 Теперь покажи меню. Только меню и фраза. Без лишнего текста."""
 
-# ===================== ТОВАР 2: ЛЕКЦИЯ (ЗАГЛУШКА) =====================
+# ===================== ТОВАР 2: ЛЕКЦИЯ =====================
 LECTURE_PRICE = 2599.00
-LECTURE_VIDEO_FILE_ID = "СЮДА_ВСТАВИМ_FILE_ID_ПОЗЖЕ"  # Заглушка
+LECTURE_VIDEO_FILE_ID = "BAACAgIAAxkBAAIO4WrbODWfFLUS8q7ABa8Sl_COT5PxAALkowACCuvZSl9S7W8BJTwCPQQ"  # Наш ID!
 
 LECTURE_DESCRIPTION = """
 🎥 *Лекция «Либо идеально, либо никак»*
@@ -371,20 +371,6 @@ def get_payment_status(payment_id):
     except Exception as e:
         logger.error(f"❌ Ошибка проверки платежа: {e}")
         return None
-
-# ===================== ВРЕМЕННАЯ ФУНКЦИЯ ДЛЯ FILE_ID =====================
-async def get_video_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Временная функция для получения file_id (ловит ВСЁ)"""
-    logger.info(f"📥 Получено сообщение. Тип: {update.message.effective_attachment}")
-    
-    if update.message.video:
-        await update.message.reply_text(f"✅ file_id (видео): `{update.message.video.file_id}`", parse_mode="Markdown")
-    elif update.message.document:
-        await update.message.reply_text(f"✅ file_id (файл): `{update.message.document.file_id}`", parse_mode="Markdown")
-    elif update.message.text:
-        await update.message.reply_text(f"Вы прислали текст: {update.message.text}")
-    else:
-        await update.message.reply_text("Я получил сообщение, но не вижу в нём видео.")
 
 # ===================== ОБРАБОТЧИКИ БОТА =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -629,19 +615,12 @@ async def send_lecture(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
         await asyncio.sleep(0.5)
-        if LECTURE_VIDEO_FILE_ID == "СЮДА_ВСТАВИМ_FILE_ID_ПОЗЖЕ":
-            await message.reply_text(
-                "⚠️ Видео временно недоступно. Пожалуйста, свяжитесь с @daryashpilevskaya.",
-                parse_mode="Markdown"
-            )
-            logger.warning(f"⚠️ FILE_ID лекции не установлен! Пользователь: {user_name}")
-        else:
-            await message.reply_video(
-                video=LECTURE_VIDEO_FILE_ID,
-                caption="🎥 *Лекция «Либо идеально, либо никак»*\n\nПриятного просмотра!",
-                parse_mode="Markdown"
-            )
-            logger.info(f"✅ ЛЕКЦИЯ ОТПРАВЛЕНА: {user_name} ({user_username})")
+        await message.reply_video(
+            video=LECTURE_VIDEO_FILE_ID,
+            caption="🎥 *Лекция «Либо идеально, либо никак»*\n\nПриятного просмотра!",
+            parse_mode="Markdown"
+        )
+        logger.info(f"✅ ЛЕКЦИЯ ОТПРАВЛЕНА: {user_name} ({user_username})")
         
         await asyncio.sleep(0.5)
         # Кнопка отзыва и другие материалы
@@ -702,23 +681,9 @@ async def handle_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # ===================== ЗАПУСК =====================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
-
-    # --- ВРЕМЕННЫЙ ПЕРЕХВАТЧИК ВСЕХ СООБЩЕНИЙ ---
-    async def debug_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.message and update.message.video:
-            print(f"🎥 НАЙДЕНО ВИДЕО! FILE_ID: {update.message.video.file_id}", flush=True)
-        elif update.message and update.message.document:
-            print(f"📄 НАЙДЕН ФАЙЛ! FILE_ID: {update.message.document.file_id}", flush=True)
-        else:
-            print(f"📩 Пришло сообщение типа: {update.message.effective_attachment if update.message else 'пусто'}", flush=True)
-    
-    app.add_handler(MessageHandler(filters.ALL, debug_all_messages), group=-1)
-    # ----------------------------------------------
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_review_text))  # ДЛЯ ОТЗЫВОВ
-    
     logger.info("🚀 Бот запущен и готов к работе")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
