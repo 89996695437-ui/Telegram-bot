@@ -294,7 +294,7 @@ PROMPT_FULL = """Ты — мой личный ментальный ассист�
 
 # ===================== ТОВАР 2: ЛЕКЦИЯ =====================
 LECTURE_PRICE = 2599.00
-LECTURE_VIDEO_FILE_ID = "BAACAgIAAxkBAAIO4WrbODWfFLUS8q7ABa8Sl_COT5PxAALkowACCuvZSl9S7W8BJTwCPQQ"  # Наш ID!
+LECTURE_VIDEO_FILE_ID = "BAACAgIAAxkBAAIO4WrbODWfFLUS8q7ABa8Sl_COT5PxAALkowACCuvZSl9S7W8BJTwCPQQ"
 
 LECTURE_DESCRIPTION = """
 🎥 *Лекция «Либо идеально, либо никак»*
@@ -323,9 +323,7 @@ LECTURE_DESCRIPTION = """
 """
 
 # ===================== ПРИВЕТСТВИЕ =====================
-WELCOME_TEXT = """👋 *Привет! На связи бот психолога Дарьи.*
-
-Выбери, что тебе интересно:
+WELCOME_TEXT = """Выбери, что тебе интересно:
 
 🎥 *Лекция «Либо идеально, либо никак»*
 🤖 *Промт «Ментальный помощник»*
@@ -615,12 +613,13 @@ async def send_lecture(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
         await asyncio.sleep(0.5)
-        await message.reply_video(
-            video=LECTURE_VIDEO_FILE_ID,
-            caption="🎥 *Лекция «Либо идеально, либо никак»*\n\nПриятного просмотра!",
-            parse_mode="Markdown"
-        )
-        logger.info(f"✅ ЛЕКЦИЯ ОТПРАВЛЕНА: {user_name} ({user_username})")
+        if LECTURE_VIDEO_FILE_ID == "BAACAgIAAxkBAAIO4WrbODWfFLUS8q7ABa8Sl_COT5PxAALkowACCuvZSl9S7W8BJTwCPQQ":
+            await message.reply_video(
+                video=LECTURE_VIDEO_FILE_ID,
+                caption="🎥 *Лекция «Либо идеально, либо никак»*\n\nПриятного просмотра!",
+                parse_mode="Markdown"
+            )
+            logger.info(f"✅ ЛЕКЦИЯ ОТПРАВЛЕНА: {user_name} ({user_username})")
         
         await asyncio.sleep(0.5)
         # Кнопка отзыва и другие материалы
@@ -683,7 +682,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_review_text))  # ДЛЯ ОТЗЫВОВ
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_review_text))
     logger.info("🚀 Бот запущен и готов к работе")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
