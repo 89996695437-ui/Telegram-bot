@@ -702,10 +702,23 @@ async def handle_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # ===================== ЗАПУСК =====================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
+
+    # --- ВРЕМЕННЫЙ ПЕРЕХВАТЧИК ВСЕХ СООБЩЕНИЙ ---
+    async def debug_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.message and update.message.video:
+            print(f"🎥 НАЙДЕНО ВИДЕО! FILE_ID: {update.message.video.file_id}", flush=True)
+        elif update.message and update.message.document:
+            print(f"📄 НАЙДЕН ФАЙЛ! FILE_ID: {update.message.document.file_id}", flush=True)
+        else:
+            print(f"📩 Пришло сообщение типа: {update.message.effective_attachment if update.message else 'пусто'}", flush=True)
+    
+    app.add_handler(MessageHandler(filters.ALL, debug_all_messages), group=-1)
+    # ----------------------------------------------
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.ALL, get_video_id))  # ВРЕМЕННО ДЛЯ FILE_ID
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_review_text))  # ДЛЯ ОТЗЫВОВ
+    
     logger.info("🚀 Бот запущен и готов к работе")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
