@@ -487,22 +487,35 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.answer("⚠️ Не удалось проверить. Попробуй позже.", show_alert=True)
         return
 
-    # ===== НОВЫЙ ТЕСТ: СТИЛЬ ДОСТИЖЕНИЯ ЦЕЛЕЙ =====
+    # ===== НОВЫЙ ТЕСТ: ВСТУПЛЕНИЕ =====
     if data == "start_goal_test":
-        context.user_data["goal_answers"] = []
-        context.user_data["goal_q"] = 0
-        logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username})")
-        await update.callback_query.answer()
+        logger.info(f"📊 ПРОСМОТР ТЕСТА: {user_name} ({user_username})")
         
         intro_text = (
             "🎯 *Тест на стиль достижения целей*\n\n"
             "Ты ставишь цели, но что-то постоянно сбивает с курса? За 2 минуты узнай свой стиль движения к целям — и ту единственную вещь, которая мешает именно тебе доходить до результата.\n\n"
             "Погнали!"
         )
+        
+        # Создаем кнопку для запуска
+        keyboard = [[InlineKeyboardButton("Начать тест", callback_data="goal_start")]]
+        
+        await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             intro_text,
-            reply_markup=get_goal_question_keyboard(0),
+            reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode="Markdown"
+        )
+        return
+
+    # ===== НОВЫЙ ТЕСТ: ЗАПУСК ПЕРВОГО ВОПРОСА =====
+    if data == "goal_start":
+        context.user_data["goal_answers"] = []
+        context.user_data["goal_q"] = 0
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(
+            QUESTIONS_GOAL[0]["text"],
+            reply_markup=get_goal_question_keyboard(0)
         )
         return
 
