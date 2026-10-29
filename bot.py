@@ -6,6 +6,7 @@ import asyncio
 import requests
 import uuid
 import base64
+from collections import Counter
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
@@ -28,28 +29,24 @@ logger.info("✅ Бот запущен")
 logger.info("🛒 SHOP_ID: " + (SHOP_ID if SHOP_ID else "НЕ УСТАНОВЛЕН"))
 logger.info("🔑 SECRET_KEY: " + ("Установлен" if SECRET_KEY else "НЕ УСТАНОВЛЕН"))
 
-# ===================== ТЕСТ: ТИП ОТДЫХА =====================
-QUESTIONS_REST = [
-    {"text": "1. В конце дня ты чаще всего чувствуешь...", "options": [("🧠 Голова гудит, мысли не останавливаются", {"mental": 2}), ("💔 Эмоционально выжата", {"emotional": 2}), ("🔊 Раздражение от шума", {"sensory": 2}), ("🌫️ Скуку и пустоту", {"creative": 2})]},
-    {"text": "2. Идеальные выходные...", "options": [("🤫 Тишина и покой", {"mental": 2}), ("💬 Время с близкими", {"emotional": 2}), ("🌿 Природа без телефона", {"sensory": 2}), ("🎨 Заниматься творчеством", {"creative": 2})]},
-    {"text": "3. Сложнее всего позволить себе...", "options": [("😌 Просто расслабиться", {"mental": 2}), ("🫂 Показывать свою уязвимость", {"emotional": 2}), ("📱 Не контролировать входящие сообщения на телефоне", {"sensory": 2}), ("⚡ Быть не эффективной", {"creative": 2})]},
-    {"text": "4. Без отдыха ты...", "options": [("🌀 Чувствуешь себя рассеянной", {"mental": 2}), ("😭 Плачешь в конце рабочего дня", {"emotional": 2}), ("💢 Чувствуешь напряжение в теле", {"sensory": 2}), ("🕳️ Чувствуешь опустошенность", {"spiritual": 2})]},
-    {"text": "5. Последний раз ты чувствовала себя отдохнувшей и удовлетворенной когда...", "options": [("🧘‍♀️ Была наедине с собой", {"mental": 2}), ("💕 Проводила время с близкими", {"emotional": 2}), ("🌲 Отдыхала на природе", {"sensory": 2}), ("🎨 Что-то творила своими руками", {"creative": 2})]},
-    {"text": "6. Отдохнуть мешает...", "options": [("💭 Мысли о делах", {"mental": 2}), ("😣 Чувство вины", {"emotional": 2}), ("🔇 Напрягает тишина", {"sensory": 2}), ("🤔 Не знаю, чем хочу заняться", {"spiritual": 2})]},
-    {"text": "7. В окружении людей ты...", "options": [("😓 Устаешь и хочешь побыть одна", {"mental": 2}), ("🎭 Держишь лицо и играешь определенную роль", {"emotional": 2}), ("💔 Скучаешь по теплу", {"social": 2}), ("🧸 Чувствуешь себя чужой", {"spiritual": 2})]},
-    {"text": "8. Какая фраза про тебя...", "options": [("🔌 Надо выключить голову", {"mental": 2}), ("🫂 Хочу выдохнуть и побыть собой", {"emotional": 2}), ("🏝️ Хочу туда где нет людей", {"sensory": 2}), ("✨ Хочу делать красивое", {"creative": 2})]},
+# ===================== НОВЫЙ ТЕСТ: СТИЛЬ ДОСТИЖЕНИЯ ЦЕЛЕЙ =====================
+QUESTIONS_GOAL = [
+    {"text": "1. Как ты обычно начинаешь новый проект или цель?", "options": [("Сначала всё продумываю: план, этапы, ресурсы", "A"), ("Загораюсь и сразу начинаю действовать", "B"), ("Долго взвешиваю, читаю, присматриваюсь, прежде чем сделать первый шаг", "C"), ("Сажусь и делаю качественно, по порядку, без суеты", "D")]},
+    {"text": "2. Что для тебя «хороший результат»?", "options": [("Когда всё прошло по плану", "A"), ("Когда было ярко и быстро", "B"), ("Когда не было рисков и ошибок", "C"), ("Когда результат выдержит любую проверку", "D")]},
+    {"text": "3. Что чаще всего тебя останавливает?", "options": [("План ещё не идеален — страшно начинать раньше времени", "A"), ("Если не получилось сразу — пропадает смысл продолжать", "B"), ("А вдруг не получится и я буду выглядеть глупо", "C"), ("Я ещё недостаточно хорошо подготовлена", "D")]},
+    {"text": "4. Как ты реагируешь на ошибку в процессе?", "options": [("Пересобираю план, иногда по кругу", "A"), ("Теряю запал, хочется всё бросить", "B"), ("Воспринимаю как подтверждение, что не стоило начинать", "C"), ("Корю себя и стараюсь переделать идеально", "D")]},
+    {"text": "5. Что говорят о тебе окружающие?", "options": [("«Ты всё просчитываешь наперёд»", "A"), ("«С тобой не соскучишься, у тебя столько идей»", "B"), ("«Ты осторожная, семь раз отмеришь»", "C"), ("«На тебя можно положиться, ты всё делаешь качественно»", "D")]},
+    {"text": "6. Твои отношения с отдыхом во время движения к цели?", "options": [("Отдыхаю, только когда весь план выполнен", "A"), ("Отдыхаю рывками — то марафон, то полный штиль", "B"), ("Отдыхаю много, потому что не решаюсь начать", "C"), ("Отдых — это почти всегда с чувством вины", "D")]},
+    {"text": "7. Какая мысль звучит у тебя чаще всего?", "options": [("«Надо продумать ещё раз, вдруг я что-то упустила»", "A"), ("«Либо сейчас на максимум, либо вообще не стоит»", "B"), ("«Лучше ничего не менять, чем ошибиться»", "C"), ("«Это недостаточно хорошо, надо доделать»", "D")]},
+    {"text": "8. Что бы ты хотела изменить в своём подходе к целям?", "options": [("Начинать раньше, не доводя план до идеала", "A"), ("Не сдуваться после первого препятствия", "B"), ("Разрешить себе пробовать, даже не будучи готовой на 100%", "C"), ("Перестать требовать от себя идеала с первого раза", "D")]},
 ]
 
-RESULTS_REST = {
-    "mental": {"title": "🧠 Ментальный отдых", "desc": "Твой мозг перегружен. Нужна пауза без задач.", "tips": ["🚶‍♀️ Прогулка без телефона", "🧘‍♀️ Медитация 5 минут", "🛌 Лечь и ничего не делать", "✨ Рутинная приятная деятельность"]},
-    "emotional": {"title": "💖 Эмоциональный отдых", "desc": "Ты долго держишься. Нужно место где можно снять маску.", "tips": ["💬 Разговор о чувствах", "🎬 Фильм который разрешает поплакать", "📔 Дневник без цели", "🧑‍⚕️ Визит к психологу"]},
-    "sensory": {"title": "🌿 Сенсорный отдых", "desc": "Органы чувств перегружены. Нужна настоящая тишина.", "tips": ["📵 Час без экранов", "🌲 Природа без наушников", "🛁 Ванна при свечах", "💆‍♀️ Массаж"]},
-    "creative": {"title": "🎨 Творческий отдых", "desc": "Давно ничего не делала просто так. Нужна игра.", "tips": ["✏️ Рисовать без цели", "🍳 Готовить новое", "💃 Танцевать дома", "🧶 Лепить или вышивать"]},
-    "social": {"title": "👭 Социальный отдых", "desc": "Нужен контакт с людьми которые принимают тебя.", "tips": ["☕ Встреча с подругой", "🍽️ Свидание с партнером вне дома", "🚫 Меньше времени с теми кто забирает энергию", "👥 Сообщество по интересу"]},
-    "spiritual": {"title": "🙏 Духовный отдых", "desc": "Потеряла ощущение смысла. Нужно соединение с чем-то большим.", "tips": ["🤫 Время в тишине", "✍️ Записать что важно", "🏡 Отдых в загородном доме или отеле", "🧒 Диалог с внутренним ребенком"]},
+RESULTS_GOAL = {
+    "A": {"title": "🧭 Стратег", "desc": "Ты продумываешь всё до мелочей и любишь, когда есть чёткий план. Это сильная сторона — ты редко действуешь вслепую. Но есть слепая зона: ты не начинаешь, пока план не станет идеальным. А значит, план готов — а действия всё ещё нет."},
+    "B": {"title": "⚡ Спринтер", "desc": "Ты загораешься быстро и ярко, умеешь стартовать без раскачки. Это редкий дар — большинство людей месяцами не могут решиться. Слепая зона: для тебя либо всё сразу и по максимуму, либо «зачем вообще». Первое препятствие — и запал гаснет."},
+    "C": {"title": "🔍 Наблюдатель", "desc": "Ты осторожна и умеешь оценивать риски — это защищает тебя от необдуманных решений. Слепая зона: первый неидеальный опыт пугает так сильно, что проще вообще не начинать, чем допустить ошибку на глазах у всех."},
+    "D": {"title": "📐 Отличница", "desc": "Ты делаешь качественно, стабильно, на тебя можно положиться. Слепая зона: результат есть, а лёгкости и удовольствия от процесса — нет, потому что планка растёт быстрее, чем твои достижения."},
 }
-
-ARTICLE_URL = "https://teletype.in/@ps.darya/sCSxNEl0d-9"
 
 # ===================== ТОВАР 1: ПРОМТ =====================
 PROMPT_PRICE = 1599.00
@@ -301,21 +298,20 @@ LECTURE_DESCRIPTION = """
 
 *Как выйти из порочного круга мечт перед сном, но ничего-не-делания в реальности?*
 
-Если ты счастливый обладатель нарциссической травмы, которая проявляется так:
+Если вы счастливый обладатель нарциссической травмы, которая проявляется так:
 
-— Каждый день даёшь себе обещание начать с понедельника, но когда он наступает — воз и ныне там.
-— Если не уверена на 100%, что получится идеально — даже не начинаешь.
-— Требуешь от себя всегда идеального результата.
-— Перед сном фантазируешь, как всё могло бы быть по-другому, но утром мотивация испаряется.
-— Чувствуешь в себе огромный потенциал, но до действий в реальности так и не доходит.
-— Не обладаешь искусством маленьких шагов.
-— Имеешь талант к прокрастинации.
-— Боишься, что если начнёшь что-то делать, получишь осуждение других.
+— Перед сном фантазируете, как всё могло бы быть по-другому, но утром мотивация испаряется.
+— Чувствуете в себе огромный потенциал, но до действий в реальности так и не доходит.
+— Не обладаете искусством маленьких шагов.
+— Имеете талант к прокрастинации.
+— Боитесь, что если начнёте что-то делать, получите осуждение других.
 
 *На лекции мы разберём:*
 • Откуда берётся этот механизм
 • Как перестать ждать идеального момента
-• Как начать делать маленькие шаги без насилия над собой
+• Как начать закрывать свои цели уже прям после просмотра лекции
+
+✨ Ссылка на лекцию ждет вас в шапке профиля через бот.
 
 💰 *Стоимость:* 2599 ₽
 
@@ -325,9 +321,9 @@ LECTURE_DESCRIPTION = """
 # ===================== ПРИВЕТСТВИЕ =====================
 WELCOME_TEXT = """Выбери, что тебе интересно:
 
+🧠 *Тест: твой стиль достижения и преграды*
 🎥 *Лекция «Либо идеально, либо никак»*
-🤖 *Промт «Ментальный помощник»*
-🧠 *Тест на тип отдыха*"""
+🤖 *Промт «Ментальный помощник»*"""
 
 # ===================== ФУНКЦИИ ЮKASSA =====================
 def create_payment(amount, description, user_id):
@@ -379,9 +375,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"📊 НОВЫЙ ПОЛЬЗОВАТЕЛЬ: {user_name} ({user_username}) | ID: {user.id}")
 
     keyboard = [
+        [InlineKeyboardButton("🧠 Тест: твой стиль достижения и преграды", callback_data="start_goal_test")],
         [InlineKeyboardButton("🎥 Лекция «Либо идеально, либо никак»", callback_data="show_lecture")],
-        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")],
-        [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")]
+        [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")]
     ]
     await update.message.reply_text(WELCOME_TEXT, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -491,43 +487,53 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.callback_query.answer("⚠️ Не удалось проверить. Попробуй позже.", show_alert=True)
         return
 
-    # ===== ТЕСТ =====
-    if data == "start_rest":
-        context.user_data["scores"] = {k: 0 for k in RESULTS_REST}
-        context.user_data["question"] = 0
+    # ===== НОВЫЙ ТЕСТ: СТИЛЬ ДОСТИЖЕНИЯ ЦЕЛЕЙ =====
+    if data == "start_goal_test":
+        context.user_data["goal_answers"] = []
+        context.user_data["goal_q"] = 0
         logger.info(f"📝 НАЧАЛ ТЕСТ: {user_name} ({user_username})")
         await update.callback_query.answer()
+        
+        intro_text = (
+            "🎯 *Тест на стиль достижения целей*\n\n"
+            "Ты ставишь цели, но что-то постоянно сбивает с курса? За 2 минуты узнай свой стиль движения к целям — и ту единственную вещь, которая мешает именно тебе доходить до результата.\n\n"
+            "Погнали!"
+        )
         await update.callback_query.edit_message_text(
-            "🌸 *Тест на тип отдыха! 8 вопросов.*\n\n" + QUESTIONS_REST[0]["text"],
-            reply_markup=get_question_keyboard_rest(0),
+            intro_text,
+            reply_markup=get_goal_question_keyboard(0),
             parse_mode="Markdown"
         )
         return
 
-    if data.startswith("rest_"):
-        parts = data[5:].split("_")
-        qi, oi = int(parts[0]), int(parts[1])
-        if qi != context.user_data.get("question", 0):
-            await update.callback_query.answer("Уже отвечено")
-            return
-        _, sd = QUESTIONS_REST[qi]["options"][oi]
-        for k, v in sd.items():
-            context.user_data["scores"][k] = context.user_data["scores"].get(k, 0) + v
-        nq = qi + 1
-        context.user_data["question"] = nq
-        if nq < len(QUESTIONS_REST):
+    if data.startswith("goal_"):
+        parts = data.split("_")
+        q_idx = int(parts[1])
+        opt_idx = int(parts[2])
+        
+        # Сохраняем выбранную букву
+        answer_letter = QUESTIONS_GOAL[q_idx]["options"][opt_idx][1]
+        context.user_data["goal_answers"].append(answer_letter)
+        
+        next_q = q_idx + 1
+        context.user_data["goal_q"] = next_q
+        
+        if next_q < len(QUESTIONS_GOAL):
             await update.callback_query.answer()
             await update.callback_query.edit_message_text(
-                QUESTIONS_REST[nq]["text"],
-                reply_markup=get_question_keyboard_rest(nq)
+                QUESTIONS_GOAL[next_q]["text"],
+                reply_markup=get_goal_question_keyboard(next_q)
             )
         else:
-            await show_result(update, context)
+            await show_goal_result(update, context)
         return
 
-def get_question_keyboard_rest(q_idx):
-    q = QUESTIONS_REST[q_idx]
-    keyboard = [[InlineKeyboardButton(t, callback_data="rest_" + str(q_idx) + "_" + str(i))] for i, (t, _) in enumerate(q["options"])]
+def get_goal_question_keyboard(q_idx):
+    q = QUESTIONS_GOAL[q_idx]
+    keyboard = []
+    for i, (text, _) in enumerate(q["options"]):
+        # В callback_data передаем индексы вопроса и ответа
+        keyboard.append([InlineKeyboardButton(text, callback_data=f"goal_{q_idx}_{i}")])
     return InlineKeyboardMarkup(keyboard)
 
 def get_final_keyboard():
@@ -537,28 +543,45 @@ def get_final_keyboard():
         [InlineKeyboardButton("🧩 Подписаться на Telegram-канал", url="https://t.me/psdaryatyping")]
     ]
 
-async def show_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sc = context.user_data.get("scores", {})
-    w = max(sc, key=sc.get)
-    r = RESULTS_REST[w]
-    tips = "\n".join(t for t in r["tips"])
+async def show_goal_result(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    answers = context.user_data.get("goal_answers", [])
     user = update.effective_user
     user_name = user.first_name or "Без имени"
     user_username = f"@{user.username}" if user.username else "без юзернейма"
-    logger.info(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - РЕЗУЛЬТАТ: {r['title']}")
+    
+    # Считаем, какой буквы больше всего
+    counts = Counter(answers)
+    max_count = max(counts.values())
+    # Получаем все буквы, которые набрали максимум (на случай ничьей)
+    top_letters = [letter for letter, count in counts.items() if count == max_count]
+    
+    # Формируем результат
+    titles = []
+    descs = []
+    for letter in top_letters:
+        res = RESULTS_GOAL[letter]
+        titles.append(res["title"])
+        descs.append(res["desc"])
+        
+    final_title = " и ".join(titles)
+    final_desc = "\n\n".join(descs)
+    
+    logger.info(f"🎯 ТЕСТ ЗАВЕРШЕН: {user_name} ({user_username}) - РЕЗУЛЬТАТ: {final_title}")
+    
     text = (
-        "🏆 *Тест завершен!*\n\n"
-        f"✨ *Тебе нужен:* *{r['title']}*\n\n"
-        f"{r['desc']}\n\n"
-        f"💡 *С чего начать:*\n{tips}\n\n"
+        f"🏆 *Твой результат:* *{final_title}*\n\n"
+        f"{final_desc}\n\n"
+        "— — —\n\n"
+        "💡 *Интересный факт:* у всех четырёх типов слепая зона растёт из одного корня — страха неидеального результата. Он просто надевает разные маски: у кого-то это бесконечный план, у кого-то — выгорание после первого рывка, у кого-то — паралич перед стартом.\n\n"
+        "На лекции «Либо идеально, либо никак» разберём, откуда растёт этот страх и что с ним делать — независимо от того, какой у тебя тип.\n\n"
         "Другие материалы:"
     )
+    
     await update.callback_query.answer()
     await update.callback_query.edit_message_text(
         text=text,
         reply_markup=InlineKeyboardMarkup(get_final_keyboard()),
-        parse_mode="Markdown",
-        disable_web_page_preview=True
+        parse_mode="Markdown"
     )
 
 # ===================== ВЫДАЧА ПРОМТА =====================
@@ -592,8 +615,8 @@ async def send_prompt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(
             "Другие материалы:",
             reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🧠 Тест: твой стиль достижения и преграды", callback_data="start_goal_test")],
                 [InlineKeyboardButton("🎥 Лекция «Либо идеально, либо никак»", callback_data="show_lecture")],
-                [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
                 [InlineKeyboardButton("🧩 Подписаться на Telegram-канал", url="https://t.me/psdaryatyping")]
             ]),
             parse_mode="Markdown"
@@ -622,14 +645,13 @@ async def send_lecture(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"✅ ЛЕКЦИЯ ОТПРАВЛЕНА: {user_name} ({user_username})")
         
         await asyncio.sleep(0.5)
-        # Кнопка отзыва и другие материалы
         await message.reply_text(
             "Буду рада, если оставишь отзыв — это поможет делать материалы лучше.\n\n"
             "Другие материалы:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("✍️ Оставить отзыв", callback_data="leave_review")],
+                [InlineKeyboardButton("🧠 Тест: твой стиль достижения и преграды", callback_data="start_goal_test")],
                 [InlineKeyboardButton("🤖 Промт «Ментальный помощник»", callback_data="show_prompt")],
-                [InlineKeyboardButton("🧠 Тест на тип отдыха", callback_data="start_rest")],
                 [InlineKeyboardButton("🧩 Подписаться на Telegram-канал", url="https://t.me/psdaryatyping")]
             ]),
             parse_mode="Markdown"
@@ -656,7 +678,6 @@ async def handle_review_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         logger.info(f"📝 НОВЫЙ ОТЗЫВ от {user_name} (@{user_username}): {review_text}")
         
-        # Пересылаем отзыв тебе
         try:
             await context.bot.send_message(
                 chat_id=282241753,  # Твой ID
